@@ -1,0 +1,74 @@
+[project]
+name = "orderflow"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Maksim Seryakov",email = "seryakov_2014@mail.ru"}
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi (>=0.136.0,<0.137.0)",
+    "uvicorn (>=0.44.0,<0.45.0)",
+    "structlog (>=25.5.0,<26.0.0)",
+    "sqlalchemy (>=2.0.49,<3.0.0)",
+    "alembic (>=1.18.4,<2.0.0)",
+    "pydantic-settings (>=2.13.1,<3.0.0)",
+    "asyncpg (>=0.31.0,<0.32.0)",
+    "jwt (>=1.4.0,<2.0.0)",
+    "pyjwt (>=2.12.1,<3.0.0)",
+    "pwdlib[argon2] (>=0.3.0,<0.4.0)",
+    "passlib[bcrypt] (>=1.7.4,<2.0.0)",
+    "pydantic[email] (>=2.13.3,<3.0.0)",
+    "bcrypt (==3.2.2)",
+]
+
+[tool.poetry.group.dev.dependencies]
+ruff = ">=0.15.11,<0.16.0"
+black = ">=26.3.1,<27.0.0"
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 111
+exclude = [
+    "tests",
+    "migrations",
+    "config.py"
+]
+
+[tool.ruff.lint]
+# Список правил, которые мы включаем
+select = [
+    "E",   # pycodestyle errors (ошибки стиля)
+    "W",   # pycodestyle warnings (предупреждения стиля)
+    "F",   # pyflakes (логические ошибки, неиспользуемые импорты)
+    "I",   # isort (сортировка импортов)
+    "C90", # mccabe (сложность кода)
+    "N",   # pep8-naming (правильные имена переменных/классов)
+    "UP",  # pyupgrade (обновление синтаксиса до новых версий Python)
+    "B",   # flake8-bugbear (поиск вероятных багов)
+    "S",   # flake8-bandit (безопасность/уязвимости)
+    "PT",  # flake8-pytest-style (стиль тестов)
+    "ASYNC", # flake8-async (типичные ошибки в async коде)
+]
+
+# Что игнорировать (например, отсутствие докстрингов во всех функциях)
+ignore = [
+    "D100", # Missing docstring in public module
+    "D103", # Missing docstring in public function
+    "S101", # Allow assert (нужно для pytest)
+    "B008",
+]
+
+[tool.ruff.lint.isort]
+# Чтобы импорты из app всегда были отдельной группой
+known-first-party = ["app"]
+
+[tool.ruff.format]
+# Настройки форматировщика (заменяет Black)
+quote-style = "double"
+indent-style = "space"
