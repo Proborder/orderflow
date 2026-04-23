@@ -15,7 +15,7 @@ services:
         condition: service_healthy
     environment:
       - DB_HOST=auth-db
-      - DB_PORT=5433
+      - DB_PORT=5432
     env_file:
       - ./auth-service/.env
     ports:
@@ -41,7 +41,7 @@ services:
         condition: service_healthy
     environment:
       - DB_HOST=orders-db
-      - DB_PORT=5434
+      - DB_PORT=5432
       - KAFKA_BOOTSTRAP_SERVERS_HOST=kafka
       - KAFKA_BOOTSTRAP_SERVERS_PORT=9092
       - REDIS_HOST=redis
