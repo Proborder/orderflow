@@ -17,11 +17,11 @@ async def lifespan(app: FastAPI):
     yield
 
     await redis_manager.close()
-    logger.info("stopping_analytics_service")
+    logger.info("stopping_orders_service")
 
 
 app = FastAPI(
-    title="Order Service",
+    title="Order Service API",
     lifespan=lifespan
 )
 
