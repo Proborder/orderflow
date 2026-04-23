@@ -21,6 +21,36 @@ services:
     ports:
       - "8001:8000"
 
+  orders-service:
+    build:
+      context: .
+      dockerfile: orders-service/Dockerfile
+    container_name: orders-service
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DB_HOST=orders-db
+      - DB_PORT=5434
+      - KAFKA_BOOTSTRAP_SERVERS_HOST=kafka
+      - KAFKA_BOOTSTRAP_SERVERS_PORT=9092
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    env_file:
+      - ./auth-service/.env
+    ports:
+      - "8002:8000"
+
   auth-db:
     image: postgres:18-alpine
     container_name: auth-db
@@ -53,7 +83,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "5434:5434"
+      - "5434:5432"
     volumes:
       - ./data/postgres_data_orders:/var/lib/postgresql
 
