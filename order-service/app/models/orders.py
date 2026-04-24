@@ -22,7 +22,7 @@ class OrdersOrm(Base):
     __tablename__ = 'orders'
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID]
+    user_id: Mapped[uuid.UUID] = mapped_column(index=True)
     status: Mapped[StatusEnum] = mapped_column(Enum(StatusEnum, native_enum=True), default=StatusEnum.PENDING)
     items: Mapped[dict[str, Any]] = mapped_column(JSONB)
     total_amount: Mapped[Decimal]
