@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.api.dependecies import DBDep, ProducerDep, TokenDep
+from app.api.dependencies import DBDep, ProducerDep, TokenDep
 from app.core.exceptions import (
     DatabaseNotUnavailableException,
     DatabaseNotUnavailableHTTPException,
