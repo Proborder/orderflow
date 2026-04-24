@@ -24,6 +24,14 @@ class BaseRepository:
             raise ObjectNotFoundException from ex
         return self.schema.model_validate(model, from_attributes=True)
 
+    async def get_one_or_none(self, **filter_by) -> BaseModel | None:
+        query = select(self.model).filter_by(**filter_by)
+        result = await self.session.execute(query)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        return self.schema.model_validate(model, from_attributes=True)
+
     async def get_filtered(self, *filter, **filter_by) -> list[BaseModel]:
         query = select(self.model).filter(*filter).filter_by(**filter_by)
         result = await self.session.execute(query)

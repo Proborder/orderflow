@@ -29,3 +29,4 @@ class OrdersOrm(Base):
     saga_id: Mapped[uuid.UUID]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(onupdate=func.now(), server_default=func.now())
+    idempotency_key: Mapped[uuid.UUID] = mapped_column(unique=True)

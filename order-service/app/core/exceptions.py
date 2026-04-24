@@ -9,7 +9,7 @@ class OrdersExceptions(Exception):
 
 
 class DatabaseNotUnavailableException(OrdersExceptions):
-    detail = "База данных временна недоступна"
+    detail = "База данных временно недоступна"
 
 
 class OrderValidationException(OrdersExceptions):

@@ -9,6 +9,7 @@ from app.models.orders import StatusEnum
 
 
 class OrderCreateRequest(BaseModel):
+    idempotency_key: uuid.UUID
     items: dict[str, Any] = Field(..., min_length=1)
 
 
@@ -17,13 +18,7 @@ class OrderCreate(BaseModel):
     items: dict[str, Any]
     total_amount: Decimal
     saga_id: uuid.UUID
-
-
-class OrderResponse(BaseModel):
-    id: uuid.UUID
-    user_id: uuid.UUID
-    status: StatusEnum
-    created_at: datetime
+    idempotency_key: uuid.UUID
 
 
 class Order(OrderCreate):

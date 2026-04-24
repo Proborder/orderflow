@@ -21,14 +21,21 @@ from app.schemas.orders import (
     Order,
     OrderCreate,
     OrderCreateRequest,
-    OrderResponse,
     OrderUpdateStatus,
 )
 from app.services.base import BaseService
 
 
 class OrdersService(BaseService):
-    async def create_order(self, user_id: uuid.UUID, data: OrderCreateRequest) -> OrderResponse:
+    async def create_order(self, user_id: uuid.UUID, data: OrderCreateRequest) -> tuple[Order, bool]:
+        try:
+            existing_order = await self.db.orders.get_one_or_none(idempotency_key=data.idempotency_key)
+            if existing_order:
+                return existing_order, False
+        except (SQLAlchemyError, socket.error) as ex:
+            logger.error("Database connection error during fetch", error=ex)
+            raise DatabaseNotUnavailableException from ex
+
         try:
             total_amount = sum(
                 Decimal(str(v["price"])) * int(v.get("quantity", 1))
@@ -41,7 +48,8 @@ class OrdersService(BaseService):
             user_id=user_id,
             items=data.items,
             total_amount=Decimal(total_amount),
-            saga_id=uuid.uuid4()
+            saga_id=uuid.uuid4(),
+            idempotency_key=data.idempotency_key,
         )
 
         try:
@@ -71,17 +79,17 @@ class OrdersService(BaseService):
         except KafkaError as ex:
             logger.error("Failed to send event to Kafka", data=data, error=ex)
 
-        return OrderResponse(**new_order_data.model_dump())
+        return new_order_data, True
 
-    async def get_orders(self) -> list[OrderResponse]:
+    async def get_orders(self) -> list[Order]:
         try:
-            orders_data: list[OrderResponse] = await self.db.orders.get_all()
+            orders_data: list[Order] = await self.db.orders.get_all()
             return orders_data
         except (SQLAlchemyError, socket.error) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
-    async def get_order(self, order_id: uuid.UUID) -> OrderResponse:
+    async def get_order(self, order_id: uuid.UUID) -> Order:
         try:
             order_data = await self.db.orders.get_one(id=order_id)
             return order_data
@@ -91,7 +99,7 @@ class OrdersService(BaseService):
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
-    async def cancel_order(self, order_id: uuid.UUID) -> OrderResponse:
+    async def cancel_order(self, order_id: uuid.UUID) -> Order:
         try:
             order = await self.db.orders.get_one(with_lock=True, id=order_id)
             if order.status != StatusEnum.PENDING:
