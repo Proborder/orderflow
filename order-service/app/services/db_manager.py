@@ -1,16 +1,29 @@
-from app.repositories.refresh_tokens import RefreshTokensRepository
-from app.repositories.users import UsersRepository
+import uuid
+
+from sqlalchemy import text
+
+from app.repositories.orders import OrdersRepository
 
 
 class DBManager:
-    def __init__(self, session_factory):
+    def __init__(self, session_factory, user_id: uuid.UUID = None, role: str = None):
         self.session_factory = session_factory
+        self.user_id = user_id
+        self.role = role
 
     async def __aenter__(self):
         self.session = self.session_factory()
 
-        self.users = UsersRepository(self.session)
-        self.refresh_tokens = RefreshTokensRepository(self.session)
+        if self.user_id and self.role:
+            await self.session.execute(
+                text(
+                    "SELECT set_config('app.current_user_id', :uid, true), "
+                    "set_config('app.current_user_role', :role, true)"
+                ),
+                {"uid": str(self.user_id), "role": self.role},
+            )
+
+        self.orders = OrdersRepository(self.session)
 
         return self
 
