@@ -4,8 +4,8 @@ from sqlalchemy import text
 from starlette import status
 from starlette.responses import JSONResponse
 
-from app.api.dependencies import DBDep
 from app.core.config import settings
+from app.core.database import async_session_maker
 from app.core.logger import logger
 from app.core.redis_conn import redis_manager
 
@@ -19,14 +19,15 @@ async def ping():
 
 
 @router.get("/ready")
-async def ready(db: DBDep) -> JSONResponse:
+async def ready() -> JSONResponse:
     logger.info("ready_called")
 
     checks = {"postgresql": "ok", "kafka": "ok", "redis": "ok"}
     status_code = status.HTTP_200_OK
 
     try:
-        await db.session.execute(text("SELECT 1"))
+        async with async_session_maker() as session:
+            await session.execute(text("SELECT 1"))
     except Exception:
         checks["postgresql"] = "Unavailable"
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
