@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlalchemy import Enum, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import mapped_column, Mapped
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 

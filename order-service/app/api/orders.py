@@ -2,18 +2,18 @@ import uuid
 
 from fastapi import APIRouter
 
-from app.api.dependecies import DBDep, TokenDep, ProducerDep
+from app.api.dependecies import DBDep, ProducerDep, TokenDep
 from app.core.exceptions import (
-    DatabaseNotUnavailableHTTPException,
     DatabaseNotUnavailableException,
-    OrderValidationHTTPException,
-    OrderValidationException,
-    OrderNotFoundException,
-    OrderNotFoundHTTPException,
+    DatabaseNotUnavailableHTTPException,
     OrderCannotBeCancelledException,
     OrderCannotBeCancelledHTTPException,
+    OrderNotFoundException,
+    OrderNotFoundHTTPException,
+    OrderValidationException,
+    OrderValidationHTTPException,
 )
-from app.schemas.orders import OrderCreateRequest, Order, OrderResponse
+from app.schemas.orders import OrderCreateRequest, OrderResponse
 from app.services.orders import OrdersService
 
 router = APIRouter(prefix="/orders", tags=["orders"])

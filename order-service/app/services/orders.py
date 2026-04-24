@@ -9,18 +9,18 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.core.config import settings
 from app.core.exceptions import (
     DatabaseNotUnavailableException,
-    OrderValidationException,
     ObjectNotFoundException,
-    OrderNotFoundException,
     OrderCannotBeCancelledException,
+    OrderNotFoundException,
+    OrderValidationException,
 )
 from app.core.logger import logger
 from app.models.orders import StatusEnum
 from app.schemas.kafka import KafkaOrderEvent
 from app.schemas.orders import (
-    OrderCreateRequest,
-    OrderCreate,
     Order,
+    OrderCreate,
+    OrderCreateRequest,
     OrderResponse,
     OrderUpdateStatus,
 )

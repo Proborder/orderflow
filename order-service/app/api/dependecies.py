@@ -7,8 +7,8 @@ from fastapi import Depends, Request
 from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.exceptions import (
-    NoAccessTokenHTTPException,
     InvalidAccessTokenHTTPException,
+    NoAccessTokenHTTPException,
     TokenExpiredHTTPException,
 )
 from app.core.kafka_conn import kafka_manager
