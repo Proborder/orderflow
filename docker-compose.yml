@@ -114,15 +114,15 @@ services:
     volumes:
       - ./data/kafka_data:/var/lib/kafka/data
 
-  kafka-init:
+  kafka-topics:
     image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka-init
+    container_name: kafka-topics
     user: root
     depends_on:
       - kafka
     volumes:
-      - ./init-kafka.sh:/init-kafka.sh
-    entrypoint: ["/bin/sh", "/init-kafka.sh"]
+      - ./kafka-topics.sh:/kafka-topics.sh
+    entrypoint: ["/bin/sh", "/kafka-topics.sh"]
     environment:
       BOOTSTRAP_SERVER: kafka:9092
 
