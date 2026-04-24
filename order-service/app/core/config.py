@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DB_PASS: str
 
     DB_APP_USER: str
-    DB_APP_PASSWORD: str
+    DB_APP_PASS: str
 
     KAFKA_BOOTSTRAP_SERVERS_HOST: str
     KAFKA_BOOTSTRAP_SERVERS_PORT: int
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     @property
     def DB_URL(self):
-        return f"postgresql+asyncpg://{self.DB_APP_USER}:{self.DB_APP_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        return f"postgresql+asyncpg://{self.DB_APP_USER}:{self.DB_APP_PASS}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     @property
     def DB_MIGRATION_URL(self):
