@@ -21,11 +21,11 @@ services:
     ports:
       - "8001:8000"
 
-  orders-service:
+  order-service:
     build:
       context: .
-      dockerfile: orders-service/Dockerfile
-    container_name: orders-service
+      dockerfile: order-service/Dockerfile
+    container_name: order-service
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ready || exit 1"]
       interval: 10s
@@ -47,7 +47,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     env_file:
-      - ./auth-service/.env
+      - ./order-service/.env
     ports:
       - "8002:8000"
 
@@ -114,6 +114,18 @@ services:
     volumes:
       - ./data/kafka_data:/var/lib/kafka/data
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-init
+    user: root
+    depends_on:
+      - kafka
+    volumes:
+      - ./init-kafka.sh:/init-kafka.sh
+    entrypoint: ["/bin/sh", "/init-kafka.sh"]
+    environment:
+      BOOTSTRAP_SERVER: kafka:9092
+
   redis:
     image: redis:8.6-alpine
     container_name: redis
@@ -125,6 +137,19 @@ services:
       retries: 5
     ports:
       - "6379:6379"
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      DYNAMIC_CONFIG_ENABLID: 'true'
 
 volumes:
   postgres_data_auth:
