@@ -1,0 +1,12 @@
+**/data/
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/.git/
+**/.idea/
+**/.vscode/
+**/.env*
+**/tests/
+**/pytest.ini
+**/.pytest_cache/
+**/.ruff_cache/
