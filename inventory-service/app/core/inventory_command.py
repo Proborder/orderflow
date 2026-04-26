@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
@@ -47,7 +47,7 @@ class InventoryCommandManager:
                     )
                 except KafkaError as ex:
                     logger.error("Kafka connection lost or error occurred", error=ex)
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(settings.KAFKA_RETRY_BACKOFF_SECONDS)
                     continue
 
                 if not data:
@@ -58,13 +58,13 @@ class InventoryCommandManager:
                         for message in messages:
                             command = CommandMessage.model_validate_json(message.value)
                             await self.handle_command(command)
-                except Exception as ex:
+                except Exception:
                     for tp, messages in data.items():
                         first_offset = messages[0].offset
                         logger.info(f"Seeking back to offset {first_offset} for partition {tp.partition}")
                         self.consumer.seek(tp, first_offset)
 
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(settings.KAFKA_RETRY_BACKOFF_SECONDS)
                     continue
                 else:
                     await self.consumer.commit()

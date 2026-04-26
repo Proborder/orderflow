@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     KAFKA_CONSUMER_TIMEOUT: int
     KAFKA_CONSUMER_MAX_RECORDS: int
+    KAFKA_RETRY_BACKOFF_SECONDS: int
 
     @property
     def KAFKA_BOOTSTRAP_URL(self):
