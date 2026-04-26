@@ -29,5 +29,14 @@ class Order(OrderCreate):
     model_config = ConfigDict(from_attributes=True)
 
 
+class OrderResponse(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    status: StatusEnum
+    items: dict[str, Any]
+    total_amount: Decimal
+    created_at: datetime
+
+
 class OrderUpdateStatus(BaseModel):
     status: StatusEnum

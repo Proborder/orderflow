@@ -20,13 +20,14 @@ from app.schemas.orders import (
     Order,
     OrderCreate,
     OrderCreateRequest,
+    OrderResponse,
     OrderUpdateStatus,
 )
 from app.services.base import BaseService
 
 
 class OrdersService(BaseService):
-    async def create_order(self, user_id: uuid.UUID, data: OrderCreateRequest) -> tuple[Order, bool]:
+    async def create_order(self, user_id: uuid.UUID, data: OrderCreateRequest) -> tuple[OrderResponse, bool]:
         try:
             existing_order = await self.db.orders.get_one_or_none(idempotency_key=data.idempotency_key)
             if existing_order:
@@ -38,8 +39,7 @@ class OrdersService(BaseService):
 
         try:
             total_amount = sum(
-                Decimal(str(v["price"])) * int(v.get("quantity", 1))
-                for v in data.items.values()
+                Decimal(str(v["price"])) * int(v.get("quantity", 1)) for v in data.items.values()
             )
         except (KeyError, TypeError, ValueError) as ex:
             logger.warning("Order validation failed", error=ex)
@@ -88,7 +88,7 @@ class OrdersService(BaseService):
 
         return new_order_data, True
 
-    async def get_orders(self) -> list[Order]:
+    async def get_orders(self) -> list[OrderResponse]:
         try:
             orders_data: list[Order] = await self.db.orders.get_all()
             logger.info("Orders fetched", count=len(orders_data))
@@ -97,7 +97,7 @@ class OrdersService(BaseService):
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
-    async def get_order(self, order_id: uuid.UUID) -> Order:
+    async def get_order(self, order_id: uuid.UUID) -> OrderResponse:
         try:
             order_data = await self.db.orders.get_one(id=order_id)
             logger.info("Order fetched", data=str(order_id))
@@ -109,7 +109,7 @@ class OrdersService(BaseService):
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
-    async def cancel_order(self, order_id: uuid.UUID) -> Order:
+    async def cancel_order(self, order_id: uuid.UUID) -> OrderResponse:
         try:
             order = await self.db.orders.get_one(with_lock=True, id=order_id)
             if order.status != StatusEnum.PENDING:
