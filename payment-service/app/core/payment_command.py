@@ -32,16 +32,11 @@ class PaymentCommandManager:
         logger.info("Payment command manager started")
 
     async def stop(self):
-        if self.consumer:
-            await self.consumer.stop()
-        if self.producer:
-            await self.producer.stop()
+        await self.consumer.stop()
+        await self.producer.stop()
         logger.info("Payment command manager stopped")
 
     async def consume(self, stop_event: asyncio.Event):
-        if self.consumer is None:
-            raise KafkaError("Kafka consumer is not initialized")
-
         try:
             while not stop_event.is_set():
                 await asyncio.sleep(0)
@@ -101,9 +96,6 @@ class PaymentCommandManager:
         )
 
         try:
-            if self.producer is None:
-                raise KafkaError("Kafka producer is not initialized")
-
             await self.producer.send_and_wait(
                 topic=settings.KAFKA_ORDER_TOPIC,
                 key=str(command.order_id).encode("utf-8"),
