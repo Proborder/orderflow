@@ -1,4 +1,3 @@
-import socket
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -32,7 +31,7 @@ class OrdersService(BaseService):
             existing_order = await self.db.orders.get_one_or_none(idempotency_key=data.idempotency_key)
             if existing_order:
                 return existing_order, False
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
@@ -55,7 +54,7 @@ class OrdersService(BaseService):
         try:
             new_order_data: Order = await self.db.orders.add(new_order)
             await self.db.commit()
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
@@ -85,7 +84,7 @@ class OrdersService(BaseService):
         try:
             orders_data: list[Order] = await self.db.orders.get_all()
             return orders_data
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
@@ -95,7 +94,7 @@ class OrdersService(BaseService):
             return order_data
         except ObjectNotFoundException as ex:
             raise OrderNotFoundException from ex
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
@@ -113,6 +112,6 @@ class OrdersService(BaseService):
 
         except ObjectNotFoundException as ex:
             raise OrderNotFoundException from ex
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex

@@ -1,4 +1,3 @@
-import socket
 from typing import Annotated
 
 import jwt
@@ -43,7 +42,7 @@ async def get_current_user(request: Request, db: DBDep):
 
     try:
         user = await db.users.get_one_or_none(id=user_id)
-    except (SQLAlchemyError, socket.error) as ex:
+    except (SQLAlchemyError, OSError) as ex:
         logger.error("Database connection error during fetch", error=ex)
         raise DatabaseNotUnavailableHTTPException from ex
 

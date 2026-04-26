@@ -1,5 +1,4 @@
 import hashlib
-import socket
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -40,12 +39,6 @@ class AuthService(BaseService):
     def hash_token(self, token: str) -> str:
         return hashlib.sha256(token.encode()).hexdigest()
 
-    def decode_token(self, token: str) -> dict:
-        try:
-            return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        except jwt.exceptions.DecodeError as ex:
-            raise IncorrectTokenException from ex
-
     async def register_user(self, data: UserRequestAdd) -> User:
         try:
             email_exists = await self.db.users.get_one_or_none(email=data.email)
@@ -59,7 +52,7 @@ class AuthService(BaseService):
             await self.db.commit()
             return new_user
 
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
@@ -88,7 +81,7 @@ class AuthService(BaseService):
                 refresh_token=refresh_token
             )
 
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
@@ -137,7 +130,7 @@ class AuthService(BaseService):
                 refresh_token=refresh_token
             )
 
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
@@ -150,6 +143,6 @@ class AuthService(BaseService):
             update_data = RefreshTokenUpdate(revoked=True)
             await self.db.refresh_tokens.edit(update_data, exclude_unset=True, token_hash=token_hash)
             await self.db.commit()
-        except (SQLAlchemyError, socket.error) as ex:
+        except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
