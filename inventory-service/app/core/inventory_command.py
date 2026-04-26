@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from datetime import datetime
+from typing import Self
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
@@ -12,31 +13,38 @@ from app.schemas.messages import CommandMessage, EventMessage
 
 class InventoryCommandManager:
     def __init__(self):
-        self.consumer: AIOKafkaConsumer = AIOKafkaConsumer(
+        self.consumer: AIOKafkaConsumer | None = None
+        self.producer: AIOKafkaProducer | None = None
+        self.processed_message_ids: set[uuid.UUID] = set()
+
+    async def start(self):
+        self.consumer = AIOKafkaConsumer(
             settings.KAFKA_COMMAND_TOPIC,
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
             group_id=settings.KAFKA_GROUP_ID,
             enable_auto_commit=False,
             value_deserializer=lambda value: value.decode("utf-8"),
         )
-        self.producer: AIOKafkaProducer = AIOKafkaProducer(
+        self.producer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
             enable_idempotence=True,
-            value_serializer=lambda value: value.encode("utf-8")
+            value_serializer=lambda value: value.encode("utf-8"),
         )
-        self.processed_message_ids: set[uuid.UUID] = set()
-
-    async def start(self):
         await self.consumer.start()
         await self.producer.start()
         logger.info("Inventory command manager started")
 
-    async def stop(self):
-        await self.consumer.stop()
-        await self.producer.stop()
+    async def stop(self) -> None:
+        if self.consumer:
+            await self.consumer.stop()
+        if self.producer:
+            await self.producer.stop()
         logger.info("Inventory command manager stopped")
 
-    async def consume(self, stop_event: asyncio.Event):
+    async def consume(self, stop_event: asyncio.Event) -> None:
+        if self.consumer is None:
+            raise KafkaError("Kafka consumer is not initialized")
+
         try:
             while not stop_event.is_set():
                 await asyncio.sleep(0)
@@ -96,6 +104,9 @@ class InventoryCommandManager:
         )
 
         try:
+            if self.producer is None:
+                raise KafkaError("Kafka producer is not initialized")
+
             await self.producer.send_and_wait(
                 topic=settings.KAFKA_ORDER_TOPIC,
                 key=str(command.order_id).encode("utf-8"),

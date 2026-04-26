@@ -22,7 +22,7 @@ async def ready() -> JSONResponse:
     checks = {"kafka": "ok"}
     status_code = status.HTTP_200_OK
 
-    client = AIOKafkaClient(bootstrap_servers=settings.kafka_bootstrap_url)
+    client = AIOKafkaClient(bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL)
     try:
         await client.bootstrap()
     except Exception as ex:

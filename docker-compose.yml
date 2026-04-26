@@ -71,6 +71,8 @@ services:
     environment:
       - KAFKA_BOOTSTRAP_SERVERS_HOST=kafka
       - KAFKA_BOOTSTRAP_SERVERS_PORT=9092
+    env_file:
+      - ./inventory-service/.env
     ports:
       - "8003:8000"
 
@@ -92,6 +94,8 @@ services:
     environment:
       - KAFKA_BOOTSTRAP_SERVERS_HOST=kafka
       - KAFKA_BOOTSTRAP_SERVERS_PORT=9092
+    env_file:
+      - ./payment-service/.env
     ports:
       - "8004:8000"
 

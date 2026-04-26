@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from datetime import datetime
+from typing import Self
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
@@ -11,32 +12,39 @@ from app.schemas.messages import CommandMessage, EventMessage
 
 
 class PaymentCommandManager:
-    def __init__(self) -> None:
-        self.consumer: AIOKafkaConsumer = AIOKafkaConsumer(
+    def __init__(self):
+        self.consumer: AIOKafkaConsumer | None = None
+        self.producer: AIOKafkaProducer | None = None
+        self.processed_message_ids: set[uuid.UUID] = set()
+
+    async def start(self):
+        self.consumer = AIOKafkaConsumer(
             settings.KAFKA_COMMAND_TOPIC,
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
             group_id=settings.KAFKA_GROUP_ID,
             enable_auto_commit=False,
             value_deserializer=lambda value: value.decode("utf-8"),
         )
-        self.producer: AIOKafkaProducer = AIOKafkaProducer(
+        self.producer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
             enable_idempotence=True,
-            value_serializer=lambda value: value.encode("utf-8")
+            value_serializer=lambda value: value.encode("utf-8"),
         )
-        self.processed_message_ids: set[uuid.UUID] = set()
-
-    async def start(self) -> None:
         await self.consumer.start()
         await self.producer.start()
         logger.info("Payment command manager started")
 
-    async def stop(self) -> None:
-        await self.consumer.stop()
-        await self.producer.stop()
+    async def stop(self):
+        if self.consumer:
+            await self.consumer.stop()
+        if self.producer:
+            await self.producer.stop()
         logger.info("Payment command manager stopped")
 
-    async def consume(self, stop_event: asyncio.Event) -> None:
+    async def consume(self, stop_event: asyncio.Event):
+        if self.consumer is None:
+            raise KafkaError("Kafka consumer is not initialized")
+
         try:
             while not stop_event.is_set():
                 await asyncio.sleep(0)
@@ -72,7 +80,7 @@ class PaymentCommandManager:
         except asyncio.CancelledError:
             logger.info("Payment command worker shutdown")
 
-    async def handle_command(self, command: CommandMessage) -> None:
+    async def handle_command(self, command: CommandMessage):
         if command.message_id in self.processed_message_ids:
             logger.info("Payment command skipped", message_id=str(command.message_id))
             return
@@ -96,6 +104,9 @@ class PaymentCommandManager:
         )
 
         try:
+            if self.producer is None:
+                raise KafkaError("Kafka producer is not initialized")
+
             await self.producer.send_and_wait(
                 topic=settings.KAFKA_ORDER_TOPIC,
                 key=str(command.order_id).encode("utf-8"),
