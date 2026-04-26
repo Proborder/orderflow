@@ -41,6 +41,7 @@ class RedisManager:
     async def close(self):
         if self._redis:
             await self._redis.close()
+            logger.info("Redis connection closed")
 
 
 redis_manager = RedisManager(

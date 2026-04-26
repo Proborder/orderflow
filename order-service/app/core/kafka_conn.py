@@ -18,6 +18,7 @@ class KafkaManager:
     async def stop(self):
         if self.producer:
             await self.producer.stop()
+            logger.info("Kafka producer stopped")
 
 
 kafka_manager = KafkaManager(bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL)

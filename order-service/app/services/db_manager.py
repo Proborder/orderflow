@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import text
 
+from app.core.logger import logger
 from app.repositories.orders import OrdersRepository
 
 
@@ -31,6 +32,7 @@ class DBManager:
         try:
             if exc_type:
                 await self.session.rollback()
+                logger.warning("Database session rolled back", error=exc_val)
         finally:
             await self.session.close()
 

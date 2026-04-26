@@ -22,6 +22,7 @@ async def verify_jwt_token(request: Request) -> TokenData:
     token = request.cookies.get("access_token")
 
     if not token:
+        logger.warning("Access token is missing")
         raise NoAccessTokenHTTPException
 
     try:
@@ -32,8 +33,10 @@ async def verify_jwt_token(request: Request) -> TokenData:
             expire=payload.get("exp"),
         )
     except jwt.exceptions.DecodeError as ex:
+        logger.warning("Access token is invalid", error=ex)
         raise InvalidAccessTokenHTTPException from ex
     except jwt.exceptions.ExpiredSignatureError as ex:
+        logger.warning("Access token expired", error=ex)
         raise TokenExpiredHTTPException from ex
 
 
@@ -42,7 +45,7 @@ TokenDep = Annotated[TokenData, Depends(verify_jwt_token)]
 
 def get_kafka_producer() -> AIOKafkaProducer:
     if kafka_manager.producer is None:
-        logger.warning("Kafka producer not initialized")
+        logger.error("Kafka producer is not initialized")
     return kafka_manager.producer
 
 
