@@ -106,8 +106,6 @@ async def logout(
         raise DatabaseNotUnavailableHTTPException from ex
     except IncorrectTokenException as ex:
         raise NoAccessTokenHTTPException from ex
-    except RefreshTokenExpiredException as ex:
-        raise RefreshTokenExpiredHTTPException from ex
 
     response.delete_cookie(
         key="refresh_token",

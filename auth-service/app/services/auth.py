@@ -137,9 +137,13 @@ class AuthService(BaseService):
     async def logout(self, refresh_token: str):
         try:
             if not refresh_token:
-                raise RefreshTokenExpiredException
+                raise IncorrectTokenException
 
             token_hash = self.hash_token(refresh_token)
+            token = self.db.refresh_tokens.get_one_or_none(token_hash=token_hash)
+            if not token:
+                raise IncorrectTokenException
+
             update_data = RefreshTokenUpdate(revoked=True)
             await self.db.refresh_tokens.edit(update_data, exclude_unset=True, token_hash=token_hash)
             await self.db.commit()
