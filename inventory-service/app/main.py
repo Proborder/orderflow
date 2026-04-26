@@ -4,8 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
-from app.core.logger import logger
 from app.core.inventory_command import inventory_command_manager
+from app.core.logger import logger
 
 
 @asynccontextmanager

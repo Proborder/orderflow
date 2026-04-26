@@ -14,7 +14,7 @@ from app.core.exceptions import (
     OrderValidationException,
     OrderValidationHTTPException,
 )
-from app.schemas.orders import OrderCreateRequest, Order
+from app.schemas.orders import Order, OrderCreateRequest
 from app.services.orders import OrdersService
 
 router = APIRouter(prefix="/orders", tags=["orders"])

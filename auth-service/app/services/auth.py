@@ -1,6 +1,6 @@
 import hashlib
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from passlib.context import CryptContext
@@ -25,7 +25,7 @@ class AuthService(BaseService):
 
     def create_access_token(self, data: dict) -> str:
         to_encode = data.copy()
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode |= {"exp": expire}
         encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
         return encoded_jwt
@@ -69,7 +69,7 @@ class AuthService(BaseService):
                 user_id=user.id,
                 token_hash=self.hash_token(refresh_token),
                 expires_at=(
-                    datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+                    datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
                 ).replace(tzinfo=None)
             )
 
@@ -96,7 +96,7 @@ class AuthService(BaseService):
             if not token_data:
                 raise IncorrectTokenException
 
-            if token_data.expires_at.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            if token_data.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
                 raise RefreshTokenExpiredException
 
             if token_data.revoked:
@@ -118,7 +118,7 @@ class AuthService(BaseService):
                 user_id=token_data.user_id,
                 token_hash=self.hash_token(refresh_token),
                 expires_at=(
-                    datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+                    datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
                 ).replace(tzinfo=None)
             )
 
@@ -140,7 +140,7 @@ class AuthService(BaseService):
                 raise IncorrectTokenException
 
             token_hash = self.hash_token(refresh_token)
-            token = self.db.refresh_tokens.get_one_or_none(token_hash=token_hash)
+            token = await self.db.refresh_tokens.get_one_or_none(token_hash=token_hash)
             if not token:
                 raise IncorrectTokenException
 

@@ -10,9 +10,9 @@ from app.core.database import async_session_maker
 from app.core.exceptions import (
     DatabaseNotUnavailableHTTPException,
     NoAccessTokenHTTPException,
+    TokenExpiredHTTPException,
     UserIsNotFoundException,
     UserIsNotFoundHTTPException,
-    TokenExpiredHTTPException,
 )
 from app.core.logger import logger
 from app.schemas.users import User

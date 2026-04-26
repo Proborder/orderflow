@@ -9,9 +9,9 @@ sys.path.append(str(Path(__file__).parent.parent))
 from app.api.health import router as health_router
 from app.api.middleware import LoggingMiddleware
 from app.api.orders import router as orders_router
+from app.core.kafka_conn import kafka_manager
 from app.core.logger import logger
 from app.core.redis_conn import redis_manager
-from app.core.kafka_conn import kafka_manager
 
 
 @asynccontextmanager
