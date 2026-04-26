@@ -10,7 +10,7 @@ from app.core.logger import logger
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    logger.info("starting_inventory_service")
+    logger.info("Starting inventory service")
     stop_event = asyncio.Event()
 
     consumer = await inventory_command_manager.start()
@@ -18,7 +18,7 @@ async def lifespan(_: FastAPI):
 
     yield
 
-    logger.info("shutting_down_inventory_service")
+    logger.info("Shutting down inventory service")
     stop_event.set()
 
     try:
@@ -31,7 +31,7 @@ async def lifespan(_: FastAPI):
         logger.error("Error during consumer shutdown", error=ex)
     finally:
         await inventory_command_manager.stop()
-        logger.info("stopping_inventory_service")
+        logger.info("Stopping inventory service")
 
 
 app = FastAPI(

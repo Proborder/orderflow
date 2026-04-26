@@ -16,7 +16,7 @@ from app.core.redis_conn import redis_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("starting_orders_service")
+    logger.info("Starting orders service")
 
     await redis_manager.connect()
     await kafka_manager.setup()
@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     await redis_manager.close()
     await kafka_manager.stop()
 
-    logger.info("stopping_orders_service")
+    logger.info("Stopping orders service")
 
 
 app = FastAPI(

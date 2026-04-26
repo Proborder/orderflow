@@ -29,12 +29,12 @@ class PaymentCommandManager:
     async def start(self) -> None:
         await self.consumer.start()
         await self.producer.start()
-        logger.info("payment_command_started")
+        logger.info("Payment command manager started")
 
     async def stop(self) -> None:
         await self.consumer.stop()
         await self.producer.stop()
-        logger.info("payment_command_stopped")
+        logger.info("Payment command manager stopped")
 
     async def consume(self, stop_event: asyncio.Event) -> None:
         try:
@@ -74,7 +74,7 @@ class PaymentCommandManager:
 
     async def handle_command(self, command: CommandMessage) -> None:
         if command.message_id in self.processed_message_ids:
-            logger.info("payment_command_skipped", message_id=str(command.message_id))
+            logger.info("Payment command skipped", message_id=str(command.message_id))
             return
 
         if command.command_type == "charge_payment":
@@ -83,7 +83,7 @@ class PaymentCommandManager:
             event_type = "payment.refunded"
         else:
             self.processed_message_ids.add(command.message_id)
-            logger.info("payment_command_unknown", message_id=str(command.message_id))
+            logger.warning("Unknown payment command received", message_id=str(command.message_id))
             return
 
         event = EventMessage(
@@ -107,7 +107,7 @@ class PaymentCommandManager:
         else:
             self.processed_message_ids.add(command.message_id)
             logger.info(
-                "payment_event_published",
+                "Payment event published",
                 event_type=event.event_type,
                 order_id=str(command.order_id),
                 saga_id=str(command.saga_id),

@@ -29,12 +29,12 @@ class InventoryCommandManager:
     async def start(self):
         await self.consumer.start()
         await self.producer.start()
-        logger.info("inventory_command_started")
+        logger.info("Inventory command manager started")
 
     async def stop(self):
         await self.consumer.stop()
         await self.producer.stop()
-        logger.info("inventory_command_stopped")
+        logger.info("Inventory command manager stopped")
 
     async def consume(self, stop_event: asyncio.Event):
         try:
@@ -74,7 +74,7 @@ class InventoryCommandManager:
 
     async def handle_command(self, command: CommandMessage):
         if command.message_id in self.processed_message_ids:
-            logger.info("inventory_command_skipped", message_id=str(command.message_id))
+            logger.info("Inventory command skipped", message_id=str(command.message_id))
             return
 
         if command.command_type == "reserve_inventory":
@@ -83,7 +83,7 @@ class InventoryCommandManager:
             event_type = "inventory.reservation-cancelled"
         else:
             self.processed_message_ids.add(command.message_id)
-            logger.info("inventory_command_unknown", message_id=str(command.message_id))
+            logger.warning("Unknown inventory command received", message_id=str(command.message_id))
             return
 
         event = EventMessage(

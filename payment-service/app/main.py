@@ -10,7 +10,7 @@ from app.core.payment_command import payment_command_manager
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    logger.info("starting_payment_service")
+    logger.info("Starting payment service")
     stop_event = asyncio.Event()
 
     consumer = await payment_command_manager.start()
@@ -18,7 +18,7 @@ async def lifespan(_: FastAPI):
 
     yield
 
-    logger.info("shutting_down_payment_service")
+    logger.info("Shutting down payment service")
     stop_event.set()
 
     try:
@@ -31,7 +31,7 @@ async def lifespan(_: FastAPI):
         logger.error("Error during consumer shutdown", error=ex)
     finally:
         await payment_command_manager.stop()
-        logger.info("stopping_payment_service")
+        logger.info("Stopping payment service")
 
 
 app = FastAPI(

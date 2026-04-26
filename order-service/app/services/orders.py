@@ -30,6 +30,7 @@ class OrdersService(BaseService):
         try:
             existing_order = await self.db.orders.get_one_or_none(idempotency_key=data.idempotency_key)
             if existing_order:
+                logger.info("Order already exists for idempotency key", order_id=str(existing_order.id))
                 return existing_order, False
         except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
@@ -41,6 +42,7 @@ class OrdersService(BaseService):
                 for v in data.items.values()
             )
         except (KeyError, TypeError, ValueError) as ex:
+            logger.warning("Order validation failed", error=ex)
             raise OrderValidationException from ex
 
         new_order = OrderCreate(
@@ -54,6 +56,7 @@ class OrdersService(BaseService):
         try:
             new_order_data: Order = await self.db.orders.add(new_order)
             await self.db.commit()
+            logger.info("Order saved to database", order_id=str(new_order_data.id))
         except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
@@ -75,6 +78,11 @@ class OrdersService(BaseService):
                 value=kafka_data.model_dump_json().encode("utf-8"),
                 key=str(new_order_data.id).encode("utf-8"),
             )
+            logger.info(
+                "Order event sent to Kafka",
+                order_id=str(new_order_data.id),
+                saga_id=str(new_order_data.saga_id),
+            )
         except KafkaError as ex:
             logger.error("Failed to send event to Kafka", data=data, error=ex)
 
@@ -83,6 +91,7 @@ class OrdersService(BaseService):
     async def get_orders(self) -> list[Order]:
         try:
             orders_data: list[Order] = await self.db.orders.get_all()
+            logger.info("Orders fetched", count=len(orders_data))
             return orders_data
         except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
@@ -91,8 +100,10 @@ class OrdersService(BaseService):
     async def get_order(self, order_id: uuid.UUID) -> Order:
         try:
             order_data = await self.db.orders.get_one(id=order_id)
+            logger.info("Order fetched", order_id=str(order_id))
             return order_data
         except ObjectNotFoundException as ex:
+            logger.warning("Order not found", order_id=str(order_id))
             raise OrderNotFoundException from ex
         except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
@@ -102,15 +113,18 @@ class OrdersService(BaseService):
         try:
             order = await self.db.orders.get_one(with_lock=True, id=order_id)
             if order.status != StatusEnum.PENDING:
+                logger.warning("Order cannot be cancelled", order_id=str(order_id), status=order.status)
                 raise OrderCannotBeCancelledException
 
             update_order_data = OrderUpdateStatus(status=StatusEnum.CANCELLED)
             new_order_data = await self.db.orders.edit(update_order_data, exclude_unset=True, id=order_id)
             await self.db.commit()
+            logger.info("Order cancelled", order_id=str(order_id))
 
             return new_order_data
 
         except ObjectNotFoundException as ex:
+            logger.warning("Order not found", order_id=str(order_id))
             raise OrderNotFoundException from ex
         except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)

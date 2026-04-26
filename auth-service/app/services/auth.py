@@ -44,6 +44,7 @@ class AuthService(BaseService):
         try:
             email_exists = await self.db.users.get_one_or_none(email=data.email)
             if email_exists:
+                logger.warning("User registration rejected: email already exists", email=data.email)
                 raise UserAlreadyExistsException
 
             hashed_password = self.hash_password(data.password)
@@ -51,6 +52,7 @@ class AuthService(BaseService):
 
             new_user = await self.db.users.add(new_user_data)
             await self.db.commit()
+            logger.info("User registered successfully", user_id=str(new_user.id))
             return new_user
 
         except (SQLAlchemyError, OSError) as ex:
@@ -61,6 +63,7 @@ class AuthService(BaseService):
         try:
             user = await self.db.users.get_user_with_hashed_password(email=data.email)
             if not user or not self.verify_password(data.password, user.hashed_password):
+                logger.warning("User login rejected: invalid credentials", email=data.email)
                 raise EmailOrPasswordIncorrectException
 
             access_token = self.create_access_token({"sub": str(user.id), "role": user.role})
@@ -76,6 +79,7 @@ class AuthService(BaseService):
 
             await self.db.refresh_tokens.add_without_user(new_refresh_token_data)
             await self.db.commit()
+            logger.info("User logged in successfully", user_id=str(user.id))
 
             return TokenResponse(
                 access_token=access_token,
@@ -89,21 +93,34 @@ class AuthService(BaseService):
     async def refresh_tokens(self, refresh_token: str) -> TokenResponse:
         try:
             if not refresh_token:
+                logger.warning("Refresh token rejected: token is missing")
                 raise RefreshTokenExpiredException
 
+            token_prefix = refresh_token[:8]
             token_hash = self.hash_token(refresh_token)
             token_data = await self.db.refresh_tokens.get_one_or_none(token_hash=token_hash)
 
             if not token_data:
+                logger.warning("Refresh token rejected: token was not found", token_prefix=token_prefix)
                 raise IncorrectTokenException
 
             if token_data.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
+                logger.warning(
+                    "Refresh token rejected: token expired",
+                    token_prefix=token_prefix,
+                    user_id=str(token_data.user_id),
+                )
                 raise RefreshTokenExpiredException
 
             if token_data.revoked:
                 update_data = RefreshTokenUpdate(revoked=True)
                 await self.db.refresh_tokens.edit(update_data, user_id=token_data.user_id)
                 await self.db.commit()
+                logger.warning(
+                    "Refresh token rejected: token already revoked",
+                    token_prefix=token_prefix,
+                    user_id=str(token_data.user_id),
+                )
                 raise IncorrectTokenException
 
             update_data = RefreshTokenUpdate(revoked=True)
@@ -125,6 +142,7 @@ class AuthService(BaseService):
 
             await self.db.refresh_tokens.add_without_user(new_refresh_token_data)
             await self.db.commit()
+            logger.info("Tokens refreshed successfully", user_id=str(token_data.user_id))
 
             return TokenResponse(
                 access_token=access_token,
@@ -138,16 +156,20 @@ class AuthService(BaseService):
     async def logout(self, refresh_token: str) -> None:
         try:
             if not refresh_token:
+                logger.warning("Logout rejected: refresh token is missing")
                 raise IncorrectTokenException
 
+            token_prefix = refresh_token[:8]
             token_hash = self.hash_token(refresh_token)
             token = await self.db.refresh_tokens.get_one_or_none(token_hash=token_hash)
             if not token:
+                logger.warning("Logout rejected: refresh token was not found", token_prefix=token_prefix)
                 raise IncorrectTokenException
 
             update_data = RefreshTokenUpdate(revoked=True)
             await self.db.refresh_tokens.edit(update_data, exclude_unset=True, token_hash=token_hash)
             await self.db.commit()
+            logger.info("User logged out successfully", token_prefix=token_prefix)
         except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex

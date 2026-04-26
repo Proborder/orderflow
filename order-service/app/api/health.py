@@ -14,13 +14,13 @@ router = APIRouter(prefix="/health", tags=["Health"])
 
 @router.get("/live")
 async def ping() -> dict[str, str]:
-    logger.info("healthcheck_called")
+    logger.info("Healthcheck called")
     return {"status": "ok"}
 
 
 @router.get("/ready")
 async def ready() -> JSONResponse:
-    logger.info("ready_called")
+    logger.info("Readiness check called")
 
     checks = {"postgresql": "ok", "kafka": "ok", "redis": "ok"}
     status_code = status.HTTP_200_OK
@@ -28,14 +28,16 @@ async def ready() -> JSONResponse:
     try:
         async with async_session_maker() as session:
             await session.execute(text("SELECT 1"))
-    except Exception:
+    except Exception as ex:
+        logger.warning("Readiness check failed: PostgreSQL is unavailable", error=ex)
         checks["postgresql"] = "Unavailable"
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     client = AIOKafkaClient(bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL)
     try:
         await client.bootstrap()
-    except Exception:
+    except Exception as ex:
+        logger.warning("Readiness check failed: Kafka is unavailable", error=ex)
         checks["kafka"] = "Unavailable"
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     finally:
@@ -43,7 +45,8 @@ async def ready() -> JSONResponse:
 
     try:
         await redis_manager.ping()
-    except Exception:
+    except Exception as ex:
+        logger.warning("Readiness check failed: Redis is unavailable", error=ex)
         checks["redis"] = "Unavailable"
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
