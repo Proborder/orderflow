@@ -68,3 +68,7 @@ class NoAccessTokenHTTPException(AuthHTTPExceptions):
 class RefreshTokenExpiredHTTPException(AuthHTTPExceptions):
     status_code = 401
     detail = "Срок действия токена истёк"
+
+class TokenExpiredHTTPException(AuthHTTPExceptions):
+    status_code = 401
+    detail = "Срок действия токена истёк"

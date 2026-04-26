@@ -12,6 +12,7 @@ from app.core.exceptions import (
     NoAccessTokenHTTPException,
     UserIsNotFoundException,
     UserIsNotFoundHTTPException,
+    TokenExpiredHTTPException,
 )
 from app.core.logger import logger
 from app.schemas.users import User
@@ -39,6 +40,8 @@ async def get_current_user(request: Request, db: DBDep):
             raise UserIsNotFoundException
     except jwt.exceptions.DecodeError as ex:
         raise NoAccessTokenHTTPException from ex
+    except jwt.exceptions.ExpiredSignatureError as ex:
+        raise TokenExpiredHTTPException from ex
 
     try:
         user = await db.users.get_one_or_none(id=user_id)
