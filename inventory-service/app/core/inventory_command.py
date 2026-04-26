@@ -21,7 +21,8 @@ class InventoryCommandManager:
         )
         self.producer: AIOKafkaProducer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
-            value_serializer=lambda value: value.encode("utf-8"),
+            enable_idempotence=True,
+            value_serializer=lambda value: value.encode("utf-8")
         )
         self.processed_message_ids: set[uuid.UUID] = set()
 
