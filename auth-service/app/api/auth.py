@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Cookie, Response
 
 from app.api.dependencies import DBDep, UserDep
@@ -21,7 +23,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", status_code=201)
-async def register_user(db: DBDep, data: UserRequestAdd):
+async def register_user(db: DBDep, data: UserRequestAdd) -> dict[str, uuid.UUID]:
     try:
         new_user = await AuthService(db).register_user(data)
     except UserAlreadyExistsException as ex:
@@ -33,7 +35,7 @@ async def register_user(db: DBDep, data: UserRequestAdd):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login_user(db: DBDep, response: Response, data: UserRequestAdd):
+async def login_user(db: DBDep, response: Response, data: UserRequestAdd) -> TokenResponse:
     try:
         tokens = await AuthService(db).login_user(data)
     except EmailOrPasswordIncorrectException as ex:
@@ -65,7 +67,7 @@ async def refresh_tokens(
     db: DBDep,
     response: Response,
     refresh_token: str | None = Cookie(None)
-):
+) -> TokenResponse:
     try:
         tokens = await AuthService(db).refresh_tokens(refresh_token)
     except DatabaseNotUnavailableException as ex:
@@ -99,7 +101,7 @@ async def logout(
     db: DBDep,
     response: Response,
     refresh_token: str = Cookie(None)
-):
+) -> dict[str, str]:
     try:
         await AuthService(db).logout(refresh_token)
     except DatabaseNotUnavailableException as ex:
@@ -123,5 +125,5 @@ async def logout(
 
 
 @router.get("/me", response_model=User)
-async def get_me(current_user: UserDep):
+async def get_me(current_user: UserDep) -> User:
     return current_user

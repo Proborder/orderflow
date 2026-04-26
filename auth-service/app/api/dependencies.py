@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 import jwt
@@ -19,7 +20,7 @@ from app.schemas.users import User
 from app.services.db_manager import DBManager
 
 
-async def get_db():
+async def get_db() -> AsyncGenerator[DBManager]:
     async with DBManager(session_factory=async_session_maker) as db:
         yield db
 
@@ -27,7 +28,7 @@ async def get_db():
 DBDep = Annotated[DBManager, Depends(get_db)]
 
 
-async def get_current_user(request: Request, db: DBDep):
+async def get_current_user(request: Request, db: DBDep) -> User:
     token = request.cookies.get("access_token")
 
     if not token:
@@ -58,7 +59,7 @@ async def get_current_user(request: Request, db: DBDep):
 UserDep = Annotated[User, Depends(get_current_user)]
 
 
-async def require_admin(current_user: UserDep):
+async def require_admin(current_user: UserDep) -> User:
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -1,3 +1,4 @@
+from collections.abc import AsyncGenerator
 from typing import Annotated
 
 import jwt
@@ -17,7 +18,7 @@ from app.schemas.tokens import TokenData
 from app.services.db_manager import DBManager
 
 
-async def verify_jwt_token(request: Request):
+async def verify_jwt_token(request: Request) -> TokenData:
     token = request.cookies.get("access_token")
 
     if not token:
@@ -48,7 +49,7 @@ def get_kafka_producer() -> AIOKafkaProducer:
 ProducerDep = Annotated[AIOKafkaProducer, Depends(get_kafka_producer)]
 
 
-async def get_db(token_data: TokenDep):
+async def get_db(token_data: TokenDep) -> AsyncGenerator[DBManager]:
     async with DBManager(
         session_factory=async_session_maker,
         user_id=token_data.user_id,

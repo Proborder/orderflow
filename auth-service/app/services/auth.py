@@ -1,6 +1,7 @@
 import hashlib
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
 from passlib.context import CryptContext
@@ -23,7 +24,7 @@ from app.services.base import BaseService
 class AuthService(BaseService):
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    def create_access_token(self, data: dict) -> str:
+    def create_access_token(self, data: dict[str, Any]) -> str:
         to_encode = data.copy()
         expire = datetime.now(UTC) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode |= {"exp": expire}
@@ -33,7 +34,7 @@ class AuthService(BaseService):
     def hash_password(self, password: str) -> str:
         return self.pwd_context.hash(password)
 
-    def verify_password(self, plain_password, hashed_password):
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         return self.pwd_context.verify(plain_password, hashed_password)
 
     def hash_token(self, token: str) -> str:
@@ -134,7 +135,7 @@ class AuthService(BaseService):
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
-    async def logout(self, refresh_token: str):
+    async def logout(self, refresh_token: str) -> None:
         try:
             if not refresh_token:
                 raise IncorrectTokenException

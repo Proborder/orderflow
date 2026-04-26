@@ -11,7 +11,7 @@ from app.schemas.messages import CommandMessage, EventMessage
 
 
 class InventoryCommandManager:
-    def __init__(self) -> None:
+    def __init__(self):
         self.consumer: AIOKafkaConsumer = AIOKafkaConsumer(
             settings.KAFKA_COMMAND_TOPIC,
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
@@ -26,17 +26,17 @@ class InventoryCommandManager:
         )
         self.processed_message_ids: set[uuid.UUID] = set()
 
-    async def start(self) -> None:
+    async def start(self):
         await self.consumer.start()
         await self.producer.start()
         logger.info("inventory_command_started")
 
-    async def stop(self) -> None:
+    async def stop(self):
         await self.consumer.stop()
         await self.producer.stop()
         logger.info("inventory_command_stopped")
 
-    async def consume(self, stop_event: asyncio.Event) -> None:
+    async def consume(self, stop_event: asyncio.Event):
         try:
             while not stop_event.is_set():
                 await asyncio.sleep(0)
@@ -72,7 +72,7 @@ class InventoryCommandManager:
         except asyncio.CancelledError:
             logger.info("Inventory command worker shutdown")
 
-    async def handle_command(self, command: CommandMessage) -> None:
+    async def handle_command(self, command: CommandMessage):
         if command.message_id in self.processed_message_ids:
             logger.info("inventory_command_skipped", message_id=str(command.message_id))
             return

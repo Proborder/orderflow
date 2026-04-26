@@ -13,7 +13,7 @@ router = APIRouter(prefix="/health", tags=["Health"])
 
 
 @router.get("/live")
-async def ping():
+async def ping() -> dict[str, str]:
     logger.info("healthcheck_called")
     return {"status": "ok"}
 

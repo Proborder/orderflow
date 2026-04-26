@@ -26,7 +26,7 @@ async def create_order(
     token_data: TokenDep,
     producer: ProducerDep,
     data: OrderCreateRequest
-):
+) -> Order:
     try:
         user_id = token_data.user_id
         order, is_created = await OrdersService(db, producer).create_order(user_id, data)
@@ -41,7 +41,7 @@ async def create_order(
 
 
 @router.get("/", response_model=list[Order])
-async def get_orders(db: DBDep):
+async def get_orders(db: DBDep) -> list[Order]:
     try:
         return await OrdersService(db).get_orders()
     except DatabaseNotUnavailableException as ex:
@@ -49,7 +49,7 @@ async def get_orders(db: DBDep):
 
 
 @router.get("/{order_id}", response_model=Order)
-async def get_order(db: DBDep, order_id: uuid.UUID):
+async def get_order(db: DBDep, order_id: uuid.UUID) -> Order:
     try:
         return await OrdersService(db).get_order(order_id)
     except DatabaseNotUnavailableException as ex:
@@ -59,7 +59,7 @@ async def get_order(db: DBDep, order_id: uuid.UUID):
 
 
 @router.patch("/{order_id}/cancel", response_model=Order)
-async def cancel_order(db: DBDep, order_id: uuid.UUID):
+async def cancel_order(db: DBDep, order_id: uuid.UUID) -> Order:
     try:
         return await OrdersService(db).cancel_order(order_id)
     except DatabaseNotUnavailableException as ex:
