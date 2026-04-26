@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from app.api.health import router as health_router
 from app.core.logger import logger
-from app.core.payment_command import payment_command_manager
+from app.core.payment_command import PaymentCommandManager
 
 
 @asynccontextmanager
@@ -13,8 +13,9 @@ async def lifespan(_: FastAPI):
     logger.info("Starting payment service")
     stop_event = asyncio.Event()
 
-    consumer = await payment_command_manager.start()
-    consumer_task = asyncio.create_task(consumer.consume(stop_event))
+    payment_command_manager = PaymentCommandManager()
+    await payment_command_manager.start()
+    consumer_task = asyncio.create_task(payment_command_manager.consume(stop_event))
 
     yield
 

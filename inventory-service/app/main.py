@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.health import router as health_router
-from app.core.inventory_command import inventory_command_manager
+from app.core.inventory_command import InventoryCommandManager
 from app.core.logger import logger
 
 
@@ -13,8 +13,9 @@ async def lifespan(_: FastAPI):
     logger.info("Starting inventory service")
     stop_event = asyncio.Event()
 
-    consumer = await inventory_command_manager.start()
-    consumer_task = asyncio.create_task(consumer.consume(stop_event))
+    inventory_command_manager = InventoryCommandManager()
+    await inventory_command_manager.start()
+    consumer_task = asyncio.create_task(inventory_command_manager.consume(stop_event))
 
     yield
 

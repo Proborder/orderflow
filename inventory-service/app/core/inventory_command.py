@@ -1,7 +1,6 @@
 import asyncio
 import uuid
 from datetime import datetime
-from typing import Self
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from aiokafka.errors import KafkaError
@@ -13,23 +12,21 @@ from app.schemas.messages import CommandMessage, EventMessage
 
 class InventoryCommandManager:
     def __init__(self):
-        self.consumer: AIOKafkaConsumer | None = None
-        self.producer: AIOKafkaProducer | None = None
-        self.processed_message_ids: set[uuid.UUID] = set()
-
-    async def start(self):
-        self.consumer = AIOKafkaConsumer(
+        self.consumer: AIOKafkaConsumer = AIOKafkaConsumer(
             settings.KAFKA_COMMAND_TOPIC,
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
             group_id=settings.KAFKA_GROUP_ID,
             enable_auto_commit=False,
             value_deserializer=lambda value: value.decode("utf-8"),
         )
-        self.producer = AIOKafkaProducer(
+        self.producer: AIOKafkaProducer = AIOKafkaProducer(
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
             enable_idempotence=True,
-            value_serializer=lambda value: value.encode("utf-8"),
+            value_serializer=lambda value: value.encode("utf-8")
         )
+        self.processed_message_ids: set[uuid.UUID] = set()
+
+    async def start(self):
         await self.consumer.start()
         await self.producer.start()
         logger.info("Inventory command manager started")
@@ -41,7 +38,7 @@ class InventoryCommandManager:
             await self.producer.stop()
         logger.info("Inventory command manager stopped")
 
-    async def consume(self, stop_event: asyncio.Event) -> None:
+    async def consume(self, stop_event: asyncio.Event):
         if self.consumer is None:
             raise KafkaError("Kafka consumer is not initialized")
 
@@ -128,6 +125,3 @@ class InventoryCommandManager:
         if message_id.int % 100 < 80:
             return "inventory.reserved"
         return "inventory.reserve-failed"
-
-
-inventory_command_manager = InventoryCommandManager()
