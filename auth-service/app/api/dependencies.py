@@ -14,6 +14,7 @@ from app.core.exceptions import (
     UserIsNotFoundException,
     UserIsNotFoundHTTPException,
 )
+from app.core.logger import logger
 from app.schemas.users import User
 from app.services.db_manager import DBManager
 
@@ -43,6 +44,7 @@ async def get_current_user(request: Request, db: DBDep):
     try:
         user = await db.users.get_one_or_none(id=user_id)
     except (SQLAlchemyError, socket.error) as ex:
+        logger.error("Database connection error during fetch", error=ex)
         raise DatabaseNotUnavailableHTTPException from ex
 
     if user is None:

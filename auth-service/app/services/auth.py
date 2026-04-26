@@ -15,6 +15,7 @@ from app.core.exceptions import (
     RefreshTokenExpiredException,
     UserAlreadyExistsException,
 )
+from app.core.logger import logger
 from app.schemas.refresh_tokens import RefreshTokenAdd, RefreshTokenUpdate, TokenResponse
 from app.schemas.users import User, UserAdd, UserRequestAdd
 from app.services.base import BaseService
@@ -59,6 +60,7 @@ class AuthService(BaseService):
             return new_user
 
         except (SQLAlchemyError, socket.error) as ex:
+            logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
     async def login_user(self, data: UserRequestAdd) -> TokenResponse:
@@ -87,6 +89,7 @@ class AuthService(BaseService):
             )
 
         except (SQLAlchemyError, socket.error) as ex:
+            logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
     async def refresh_tokens(self, refresh_token: str) -> TokenResponse:
@@ -135,6 +138,7 @@ class AuthService(BaseService):
             )
 
         except (SQLAlchemyError, socket.error) as ex:
+            logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
     async def logout(self, refresh_token: str):
@@ -147,4 +151,5 @@ class AuthService(BaseService):
             await self.db.refresh_tokens.edit(update_data, exclude_unset=True, token_hash=token_hash)
             await self.db.commit()
         except (SQLAlchemyError, socket.error) as ex:
+            logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
