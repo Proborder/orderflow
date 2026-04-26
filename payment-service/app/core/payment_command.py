@@ -15,6 +15,7 @@ class PaymentCommandManager:
         self.consumer: AIOKafkaConsumer = AIOKafkaConsumer(
             settings.KAFKA_COMMAND_TOPIC,
             bootstrap_servers=settings.KAFKA_BOOTSTRAP_URL,
+            group_id=settings.KAFKA_GROUP_ID,
             enable_auto_commit=False,
             value_deserializer=lambda value: value.decode("utf-8"),
         )
@@ -95,7 +96,7 @@ class PaymentCommandManager:
 
         try:
             await self.producer.send_and_wait(
-                topic=settings.KAFKA_EVENTS_TOPIC,
+                topic=settings.KAFKA_ORDER_TOPIC,
                 key=str(command.order_id).encode("utf-8"),
                 value=event.model_dump_json(),
             )

@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     KAFKA_BOOTSTRAP_SERVERS_PORT: int
 
     KAFKA_COMMAND_TOPIC: str
-    KAFKA_EVENTS_TOPIC: str
+    KAFKA_GROUP_ID: str
+    KAFKA_ORDER_TOPIC: str
 
     KAFKA_CONSUMER_TIMEOUT: int
     KAFKA_CONSUMER_MAX_RECORDS: int
