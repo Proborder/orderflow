@@ -44,14 +44,6 @@ async def login_user(db: DBDep, response: Response, data: UserRequestAdd) -> Tok
         raise DatabaseNotUnavailableHTTPException from ex
 
     response.set_cookie(
-        key="access_token",
-        value=tokens.access_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=60*15
-    )
-    response.set_cookie(
         key="refresh_token",
         value=tokens.refresh_token,
         httponly=True,
@@ -78,14 +70,6 @@ async def refresh_tokens(
         raise RefreshTokenExpiredHTTPException from ex
 
     response.set_cookie(
-        key="access_token",
-        value=tokens.access_token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=60*15
-    )
-    response.set_cookie(
         key="refresh_token",
         value=tokens.refresh_token,
         httponly=True,
@@ -111,12 +95,6 @@ async def logout(
 
     response.delete_cookie(
         key="refresh_token",
-        httponly=True,
-        secure=True,
-        samesite="lax"
-    )
-    response.delete_cookie(
-        key="access_token",
         httponly=True,
         secure=True,
         samesite="lax"

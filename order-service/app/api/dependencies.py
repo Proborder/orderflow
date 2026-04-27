@@ -3,7 +3,8 @@ from typing import Annotated
 
 import jwt
 from aiokafka import AIOKafkaProducer
-from fastapi import Depends, Request
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.config import settings
 from app.core.database import async_session_maker
@@ -18,14 +19,18 @@ from app.schemas.tokens import TokenData
 from app.services.db_manager import DBManager
 
 
-async def verify_jwt_token(request: Request) -> TokenData:
-    token = request.cookies.get("access_token")
+bearer_scheme = HTTPBearer(auto_error=False)
 
-    if not token:
+
+async def verify_jwt_token(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> TokenData:
+    if not credentials:
         logger.warning("Access token is missing")
         raise NoAccessTokenHTTPException
 
     try:
+        token = credentials.credentials
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         return TokenData(
             user_id=payload.get("sub"),

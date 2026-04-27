@@ -2,7 +2,8 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.exc import SQLAlchemyError
 from starlette import status
 
@@ -20,6 +21,9 @@ from app.schemas.users import User
 from app.services.db_manager import DBManager
 
 
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
 async def get_db() -> AsyncGenerator[DBManager]:
     async with DBManager(session_factory=async_session_maker) as db:
         yield db
@@ -28,13 +32,15 @@ async def get_db() -> AsyncGenerator[DBManager]:
 DBDep = Annotated[DBManager, Depends(get_db)]
 
 
-async def get_current_user(request: Request, db: DBDep) -> User:
-    token = request.cookies.get("access_token")
-
-    if not token:
+async def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    db: DBDep,
+) -> User:
+    if not credentials:
         raise NoAccessTokenHTTPException
 
     try:
+        token = credentials.credentials
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id = payload.get("sub")
         if user_id is None:
