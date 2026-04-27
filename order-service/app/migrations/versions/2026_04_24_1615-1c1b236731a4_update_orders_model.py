@@ -21,10 +21,10 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     op.add_column("orders", sa.Column("idempotency_key", sa.Uuid(), nullable=False))
-    op.create_unique_constraint(None, "orders", ["idempotency_key"])
+    op.create_unique_constraint("uq_orders_user_id_idempotency_key", "orders", ["user_id", "idempotency_key"])
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_constraint(None, "orders", type_="unique")
+    op.drop_constraint("uq_orders_user_id_idempotency_key", "orders", type_="unique")
     op.drop_column("orders", "idempotency_key")

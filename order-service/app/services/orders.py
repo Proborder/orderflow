@@ -29,9 +29,12 @@ from app.services.base import BaseService
 class OrdersService(BaseService):
     async def create_order(self, user_id: uuid.UUID, data: OrderCreateRequest) -> tuple[OrderResponse, bool]:
         try:
-            existing_order = await self.db.orders.get_one_or_none(idempotency_key=data.idempotency_key)
+            existing_order = await self.db.orders.get_one_or_none(
+                user_id=user_id,
+                idempotency_key=data.idempotency_key
+            )
             if existing_order:
-                logger.info("Order already exists for idempotency key", data=str(existing_order.id))
+                logger.info("Order already exists for idempotency key", data=existing_order.id)
                 return existing_order, False
         except (SQLAlchemyError, OSError) as ex:
             logger.error("Database connection error during fetch", error=ex)

@@ -26,7 +26,7 @@ def upgrade() -> None:
         DO $$
         BEGIN
             IF NOT EXISTS (SELECT FROM pg_catalog.pg_user WHERE usename = '{settings.DB_APP_USER}') THEN
-                EXECUTE 'CREATE USER "{settings.DB_APP_USER}" WITH PASSWORD ''{settings.DB_APP_PASSWORD}''';
+                EXECUTE 'CREATE USER "{settings.DB_APP_USER}" WITH PASSWORD ''{settings.DB_APP_PASS}''';
             END IF;
         END
         $$;
