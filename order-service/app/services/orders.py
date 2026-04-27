@@ -111,7 +111,11 @@ class OrdersService(BaseService):
 
     async def cancel_order(self, order_id: uuid.UUID) -> OrderResponse:
         try:
-            order = await self.db.orders.get_one(with_lock=True, id=order_id)
+            order = await self.db.orders.get_one_or_none(with_lock=True, id=order_id)
+            if not order:
+                logger.warning("Order not found", data=str(order_id))
+                raise OrderNotFoundException
+
             if order.status != StatusEnum.PENDING:
                 logger.warning("Order cannot be cancelled", data=str(order_id), status=order.status)
                 raise OrderCannotBeCancelledException

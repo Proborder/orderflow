@@ -13,10 +13,8 @@ class BaseRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_one(self, with_lock: bool = False, **filter_by) -> BaseModel:
+    async def get_one(self, **filter_by) -> BaseModel:
         query = select(self.model).filter_by(**filter_by)
-        if with_lock:
-            query = query.with_for_update()
         result = await self.session.execute(query)
         try:
             model = result.scalar_one()
@@ -24,8 +22,10 @@ class BaseRepository:
             raise ObjectNotFoundException from ex
         return self.schema.model_validate(model, from_attributes=True)
 
-    async def get_one_or_none(self, **filter_by) -> BaseModel | None:
+    async def get_one_or_none(self, with_lock: bool = False, **filter_by) -> BaseModel | None:
         query = select(self.model).filter_by(**filter_by)
+        if with_lock:
+            query = query.with_for_update()
         result = await self.session.execute(query)
         model = result.scalar_one_or_none()
         if model is None:
