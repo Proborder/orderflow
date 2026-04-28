@@ -99,6 +99,33 @@ services:
     ports:
       - "8004:8000"
 
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    container_name: orchestrator
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - DB_HOST=saga-db
+      - DB_PORT=5432
+      - KAFKA_BOOTSTRAP_SERVERS_HOST=kafka
+      - KAFKA_BOOTSTRAP_SERVERS_PORT=9092
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    env_file:
+      - ./orchestrator/.env
+    ports:
+      - "8005:8000"
+
   auth-db:
     image: postgres:18-alpine
     container_name: auth-db
@@ -134,6 +161,24 @@ services:
       - "5434:5432"
     volumes:
       - ./data/postgres_data_orders:/var/lib/postgresql
+
+  saga-db:
+    image: postgres:18-alpine
+    container_name: saga-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-admin}
+      POSTGRES_DB: ${DB_NAME:-saga}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d saga"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./data/postgres_data_saga:/var/lib/postgresql
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -202,4 +247,5 @@ services:
 volumes:
   postgres_data_auth:
   postgres_data_orders:
+  postgres_data_saga:
   kafka_data:
