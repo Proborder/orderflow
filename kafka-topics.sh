@@ -13,6 +13,7 @@ echo "Creating topics..."
 kafka-topics --bootstrap-server $SERVER --create --if-not-exists --topic order.events --partitions 4 --replication-factor 1
 kafka-topics --bootstrap-server $SERVER --create --if-not-exists --topic inventory.commands --partitions 4 --replication-factor 1
 kafka-topics --bootstrap-server $SERVER --create --if-not-exists --topic payment.commands --partitions 4 --replication-factor 1
+kafka-topics --bootstrap-server $SERVER --create --if-not-exists --topic order.commands --partitions 4 --replication-factor 1
 kafka-topics --bootstrap-server $SERVER --create --if-not-exists --topic order.dlq --partitions 1 --replication-factor 1
 
 echo "Successfully created all topics!"
