@@ -15,14 +15,15 @@ class KafkaManager:
         self.producer = AIOKafkaProducer(
             bootstrap_servers=self.bootstrap_servers,
             enable_idempotence=True,
-            value_serializer=lambda value: value.encode("utf-8"),
+            value_serializer=lambda value: value.encode("utf-8")
         )
         self.consumer = AIOKafkaConsumer(
-            settings.KAFKA_COMMAND_TOPIC,
+            settings.KAFKA_ORDER_TOPIC,
             bootstrap_servers=self.bootstrap_servers,
             group_id=settings.KAFKA_CONSUMER_GROUP,
             enable_auto_commit=False,
             value_deserializer=lambda value: value.decode("utf-8"),
+            key_deserializer=lambda key: key.decode("utf-8")
         )
         try:
             await self.producer.start()

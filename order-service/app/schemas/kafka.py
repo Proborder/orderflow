@@ -5,10 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.models.orders import StatusEnum
 
-
-class KafkaOrderEvent(BaseModel):
+class OrderEventMessage(BaseModel):
     event_id: uuid.UUID
     event_type: str
     saga_id: uuid.UUID
@@ -19,9 +17,13 @@ class KafkaOrderEvent(BaseModel):
     timestamp: datetime
 
 
-class CommandMessage(BaseModel):
-    command_type: str
+class BaseEventMessage(BaseModel):
+    event_type: str
+
+
+class SagaOrderEventMessage(BaseModel):
+    event_id: uuid.UUID
+    event_type: str
     saga_id: uuid.UUID
     order_id: uuid.UUID
-    status: StatusEnum
     message_id: uuid.UUID

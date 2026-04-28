@@ -16,7 +16,6 @@ class Settings(BaseSettings):
     KAFKA_BOOTSTRAP_SERVERS_PORT: int
 
     KAFKA_ORDER_TOPIC: str
-    KAFKA_COMMAND_TOPIC: str
     KAFKA_CONSUMER_GROUP: str
 
     KAFKA_CONSUMER_TIMEOUT: int

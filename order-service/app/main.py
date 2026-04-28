@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from app.consumer.order_events import OrderEventConsumer
+from app.consumer.order_events import OrderEventsConsumer
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     await redis_manager.connect()
 
     stop_event = asyncio.Event()
-    consumer_task = asyncio.create_task(OrderEventConsumer(kafka_manager.consumer).consume(stop_event))
+    consumer_task = asyncio.create_task(OrderEventsConsumer(kafka_manager.consumer).consume(stop_event))
 
     yield
 

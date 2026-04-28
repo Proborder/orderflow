@@ -9,16 +9,16 @@ from app.core.database import async_session_maker
 from app.core.logger import logger
 from app.models.orders import StatusEnum
 from app.repositories.orders import OrdersRepository
-from app.schemas.kafka import CommandMessage
+from app.schemas.kafka import SagaOrderEventMessage, BaseEventMessage
 from app.schemas.orders import OrderUpdateStatus
 
-ORDER_COMMAND_STATUS_MAP = {
+SAGA_EVENT_STATUS_MAP = {
     "saga.completed": StatusEnum.COMPLETED,
     "saga.cancelled": StatusEnum.CANCELLED,
 }
 
 
-class OrderEventConsumer:
+class OrderEventsConsumer:
     def __init__(self, consumer: AIOKafkaConsumer):
         self.consumer: AIOKafkaConsumer = consumer
 
@@ -47,14 +47,20 @@ class OrderEventConsumer:
 
                         for _, messages in data.items():
                             for message in messages:
-                                command: CommandMessage = CommandMessage.model_validate_json(message.value)
+                                base_event = BaseEventMessage.model_validate_json(message.value)
+                                if base_event.event_type not in SAGA_EVENT_STATUS_MAP:
+                                    logger.info("Order event skipped", event_type=base_event.event_type)
+                                    continue
+
+                                event = SagaOrderEventMessage.model_validate_json(message.value)
                                 logger.info(
-                                    "Order command received",
-                                    command_type=command.command_type,
-                                    order_id=command.order_id,
-                                    message_id=command.message_id,
+                                    "Saga event received",
+                                    event_type=event.event_type,
+                                    event_id=event.event_id,
+                                    order_id=event.order_id,
+                                    saga_id=event.saga_id
                                 )
-                                await self.command_handling(session, command)
+                                await self.handle_event(session, event)
 
                         await session.commit()
 
@@ -67,7 +73,7 @@ class OrderEventConsumer:
                             )
 
                     except Exception as ex:
-                        logger.error("Order command batch processing failed", error=ex)
+                        logger.error("Order event batch processing failed", error=ex)
                         await session.rollback()
 
                         for tp, messages in data.items():
@@ -81,33 +87,33 @@ class OrderEventConsumer:
         except asyncio.CancelledError:
             logger.info("Order event worker shutdown")
 
-    async def command_handling(self, session, command: CommandMessage):
+    async def handle_event(self, session, event: SagaOrderEventMessage):
         try:
-            next_status = ORDER_COMMAND_STATUS_MAP.get(command.command_type)
+            next_status = SAGA_EVENT_STATUS_MAP.get(event.event_type)
             if not next_status:
                 logger.warning(
-                    "Unknown order command received",
-                    command_type=command.command_type,
-                    message_id=command.message_id,
-                    order_id=command.order_id,
+                    "Unknown order event received",
+                    event_type=event.event_type,
+                    message_id=event.message_id,
+                    order_id=event.order_id
                 )
                 return
 
-            order_exists = await OrdersRepository(session).get_one_or_none(id=command.order_id)
+            order_exists = await OrdersRepository(session).get_one_or_none(id=event.order_id)
             if not order_exists:
                 logger.warning(
                     "The order does not exist",
-                    command_type=command.command_type,
-                    message_id=command.message_id,
-                    order_id=command.order_id
+                    event_type=event.event_type,
+                    message_id=event.message_id,
+                    order_id=event.order_id
                 )
                 return
 
             if order_exists.status == next_status:
                 logger.info(
-                    "Order command already applied",
-                    command_type=command.command_type,
-                    order_id=command.order_id,
+                    "Order event already applied",
+                    event_type=event.event_type,
+                    order_id=event.order_id,
                     status=next_status
                 )
                 return
@@ -115,22 +121,22 @@ class OrderEventConsumer:
             if order_exists.status != StatusEnum.PENDING:
                 logger.warning(
                     "Order status transition rejected",
-                    command_type=command.command_type,
-                    order_id=command.order_id,
+                    event_type=event.event_type,
+                    order_id=event.order_id,
                     current_status=order_exists.status,
                     next_status=next_status
                 )
                 return
 
             order_update_data = OrderUpdateStatus(status=next_status)
-            await OrdersRepository(session).edit(order_update_data, exclude_unset=True, id=command.order_id)
+            await OrdersRepository(session).edit(order_update_data, exclude_unset=True, id=event.order_id)
 
         except Exception as ex:
             logger.error(
-                "Unexpected order command handling error",
-                command_type=command.command_type,
-                message_id=command.message_id,
-                order_id=command.order_id,
+                "Unexpected order event handling error",
+                event_type=event.event_type,
+                message_id=event.message_id,
+                order_id=event.order_id,
                 error=ex
             )
             raise

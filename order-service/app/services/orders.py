@@ -15,7 +15,7 @@ from app.core.exceptions import (
 )
 from app.core.logger import logger
 from app.models.orders import StatusEnum
-from app.schemas.kafka import KafkaOrderEvent
+from app.schemas.kafka import OrderEventMessage
 from app.schemas.orders import (
     Order,
     OrderCreate,
@@ -53,7 +53,7 @@ class OrdersService(BaseService):
             items=data.items,
             total_amount=Decimal(total_amount),
             saga_id=uuid.uuid4(),
-            idempotency_key=data.idempotency_key,
+            idempotency_key=data.idempotency_key
         )
 
         try:
@@ -64,7 +64,7 @@ class OrdersService(BaseService):
             logger.error("Database connection error during fetch", error=ex)
             raise DatabaseNotUnavailableException from ex
 
-        kafka_data = KafkaOrderEvent(
+        kafka_data = OrderEventMessage(
             event_id=uuid.uuid4(),
             event_type="order.created",
             saga_id=new_order_data.saga_id,
@@ -72,19 +72,19 @@ class OrdersService(BaseService):
             user_id=new_order_data.user_id,
             items=new_order_data.items,
             total_amount=new_order_data.total_amount,
-            timestamp=datetime.now(),
+            timestamp=datetime.now()
         )
 
         try:
             await self.producer.send_and_wait(
                 topic=settings.KAFKA_ORDER_TOPIC,
-                value=kafka_data.model_dump_json().encode("utf-8"),
-                key=str(new_order_data.id).encode("utf-8"),
+                value=kafka_data.model_dump_json(),
+                key=str(new_order_data.id)
             )
             logger.info(
                 "Order event sent to Kafka",
                 order_id=str(new_order_data.id),
-                saga_id=str(new_order_data.saga_id),
+                saga_id=str(new_order_data.saga_id)
             )
         except KafkaError as ex:
             logger.error("Failed to send event to Kafka", data=data, error=ex)
