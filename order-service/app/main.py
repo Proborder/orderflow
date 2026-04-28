@@ -1,8 +1,11 @@
 import sys
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+
+from app.consumer.order_events import OrderEventConsumer
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -18,15 +21,33 @@ from app.core.redis_conn import redis_manager
 async def lifespan(app: FastAPI):
     logger.info("Starting orders service")
 
-    await redis_manager.connect()
     await kafka_manager.setup()
+    await redis_manager.connect()
+
+    stop_event = asyncio.Event()
+    consumer_task = asyncio.create_task(OrderEventConsumer(kafka_manager.consumer).consume(stop_event))
 
     yield
 
-    await redis_manager.close()
-    await kafka_manager.stop()
+    logger.info("Shutting down order service")
+    stop_event.set()
 
-    logger.info("Stopping orders service")
+    try:
+        await asyncio.wait_for(consumer_task, timeout=10.0)
+        logger.info("Consumer task finished cleanly")
+    except TimeoutError:
+        logger.error("Consumer task timed out during shutdown")
+        consumer_task.cancel()
+        try:
+            await consumer_task
+        except asyncio.CancelledError:
+            logger.info("Consumer task cancelled")
+    except Exception as ex:
+        logger.error("Error during consumer shutdown", error=ex)
+    finally:
+        await kafka_manager.stop()
+        await redis_manager.close()
+        logger.info("Stopping orders service")
 
 
 app = FastAPI(
