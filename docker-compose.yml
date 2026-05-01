@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: auth-service/Dockerfile
     container_name: auth-service
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ready || exit 1"]
       interval: 10s
@@ -27,7 +27,7 @@ services:
       context: .
       dockerfile: order-service/Dockerfile
     container_name: order-service
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ready || exit 1"]
       interval: 10s
@@ -58,7 +58,7 @@ services:
       context: .
       dockerfile: inventory-service/Dockerfile
     container_name: inventory-service
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ready || exit 1"]
       interval: 10s
@@ -81,7 +81,7 @@ services:
       context: .
       dockerfile: payment-service/Dockerfile
     container_name: payment-service
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health/ready || exit 1"]
       interval: 10s
