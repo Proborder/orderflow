@@ -1,8 +1,8 @@
-"""init saga_state
+"""Saga init
 
-Revision ID: fb00d6570891
+Revision ID: 7beb91a7b883
 Revises:
-Create Date: 2026-04-27 22:16:35.962416
+Create Date: 2026-04-30 15:51:08.573338
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "fb00d6570891"
+revision: str = "7beb91a7b883"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
