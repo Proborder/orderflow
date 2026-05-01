@@ -56,7 +56,6 @@ class OrderEventsConsumer:
                                 logger.info(
                                     "Saga event received",
                                     event_type=event.event_type,
-                                    event_id=event.event_id,
                                     order_id=event.order_id,
                                     saga_id=event.saga_id
                                 )
@@ -94,7 +93,6 @@ class OrderEventsConsumer:
                 logger.warning(
                     "Unknown order event received",
                     event_type=event.event_type,
-                    message_id=event.message_id,
                     order_id=event.order_id
                 )
                 return
@@ -104,7 +102,6 @@ class OrderEventsConsumer:
                 logger.warning(
                     "The order does not exist",
                     event_type=event.event_type,
-                    message_id=event.message_id,
                     order_id=event.order_id
                 )
                 return
@@ -135,7 +132,6 @@ class OrderEventsConsumer:
             logger.error(
                 "Unexpected order event handling error",
                 event_type=event.event_type,
-                message_id=event.message_id,
                 order_id=event.order_id,
                 error=ex
             )
