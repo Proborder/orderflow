@@ -1,6 +1,6 @@
 from app.core.config import settings
 from app.core.kafka_conn import kafka_manager
-from app.schemas.saga import CommandMessage, OrderEventMessage
+from app.schemas.messages import CommandMessage, OrderEventMessage
 
 
 class CommandsProducer:
