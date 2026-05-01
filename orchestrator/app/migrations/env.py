@@ -9,13 +9,12 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-from app.core.config import settings
-
 # Добавляем корень проекта в sys.path
 sys.path.insert(0, dirname(dirname(dirname(abspath(__file__)))))
 
 from app.core.database import Base
-from app.models import SagaStateOrm
+from app.core.config import settings
+from app.models import SagaStateOrm, ProcessedEventsOrm
 
 
 # this is the Alembic Config object, which provides
