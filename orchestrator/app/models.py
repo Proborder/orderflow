@@ -1,9 +1,9 @@
-import uuid
 import enum
+import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, Enum
+from sqlalchemy import Enum, func, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,3 +31,12 @@ class SagaStateOrm(Base):
     retry_count: Mapped[int] = mapped_column(default=0)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(onupdate=func.now(), server_default=func.now())
+
+
+class ProcessedEventsOrm(Base):
+    __tablename__ = 'processed_events'
+
+    event_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    saga_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('saga_state.saga_id'))
+    event_type: Mapped[str]
+    processed_at: Mapped[datetime] = mapped_column(server_default=func.now())
