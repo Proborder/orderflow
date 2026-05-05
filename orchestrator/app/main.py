@@ -3,9 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.consumer.dlq_reader import DLQReader
 from app.consumer.order_events import OrderEventsConsumer
 from app.core.kafka_conn import kafka_manager
 from app.core.logger import logger
+from app.saga.retry import SagaRetryWorker
 
 
 @asynccontextmanager
@@ -15,7 +17,9 @@ async def lifespan(app: FastAPI):
     await kafka_manager.setup()
 
     stop_event = asyncio.Event()
-    consumer_task = asyncio.create_task(OrderEventsConsumer(kafka_manager.consumer).consume(stop_event))
+    consumer_order_task = asyncio.create_task(OrderEventsConsumer(kafka_manager.order_consumer).consume(stop_event))
+    consumer_dlq_task = asyncio.create_task(DLQReader(kafka_manager.dlq_consumer).consume(stop_event))
+    retry_task = asyncio.create_task(SagaRetryWorker().start(stop_event))
 
     yield
 
@@ -23,13 +27,19 @@ async def lifespan(app: FastAPI):
     stop_event.set()
 
     try:
-        await asyncio.wait_for(consumer_task, timeout=10.0)
+        await asyncio.wait_for(consumer_order_task, timeout=10.0)
+        await asyncio.wait_for(consumer_dlq_task, timeout=10.0)
+        await asyncio.wait_for(retry_task, timeout=10.0)
         logger.info("Consumer task finished cleanly")
     except TimeoutError:
         logger.error("Consumer task timed out during shutdown")
-        consumer_task.cancel()
+        consumer_order_task.cancel()
+        consumer_dlq_task.cancel()
+        retry_task.cancel()
         try:
-            await consumer_task
+            await consumer_order_task
+            await consumer_dlq_task
+            await retry_task
         except asyncio.CancelledError:
             logger.info("Consumer task cancelled")
     except Exception as ex:

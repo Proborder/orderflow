@@ -14,7 +14,9 @@ class CreateSagaState(BaseModel):
 
 
 class UpdateSagaState(BaseModel):
-    state: StateEnum
+    state: StateEnum | None = None
+    retry_count: int | None = None
+    retry_after: datetime | None = None
 
 
 class SagaState(BaseModel):
@@ -23,6 +25,7 @@ class SagaState(BaseModel):
     state: StateEnum
     payload: dict[str, Any]
     retry_count: int
+    retry_after: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

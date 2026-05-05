@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Enum, func, ForeignKey
+from sqlalchemy import Enum, ForeignKey, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,6 +29,7 @@ class SagaStateOrm(Base):
     state: Mapped[StateEnum] = mapped_column(Enum(StateEnum, native_enum=True), default=StateEnum.CREATED)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
     retry_count: Mapped[int] = mapped_column(default=0)
+    retry_after: Mapped[datetime | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(onupdate=func.now(), server_default=func.now())
 

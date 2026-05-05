@@ -1,6 +1,6 @@
 from app.core.config import settings
 from app.core.kafka_conn import kafka_manager
-from app.schemas.messages import CommandMessage, OrderEventMessage
+from app.schemas.messages import CommandMessage, DlqEventMessage, OrderEventMessage
 
 
 class CommandsProducer:
@@ -26,4 +26,10 @@ class CommandsProducer:
             topic=settings.KAFKA_ORDER_TOPIC,
             value=message.model_dump_json(),
             key=str(message.order_id)
+        )
+
+    async def send_dlq(self, message: DlqEventMessage) -> None:
+        await self.producer.send_and_wait(
+            topic=settings.KAFKA_DLQ_TOPIC,
+            value=message.model_dump_json()
         )

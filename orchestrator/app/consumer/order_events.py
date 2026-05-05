@@ -1,7 +1,13 @@
 import asyncio
+import json
+import uuid
+from datetime import UTC, datetime, timedelta
+from random import uniform
 
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import CommitFailedError, KafkaError
+from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import async_session_maker
@@ -10,8 +16,9 @@ from app.models import StateEnum
 from app.producer.commands import CommandsProducer
 from app.repositories.saga import SagaStateRepository
 from app.saga.handlers import SagaEventDispatcher
-from app.saga.service import CommandMessage, SagaService
+from app.saga.service import SagaService
 from app.schemas.events import BaseEventMessage
+from app.schemas.messages import CommandMessage
 from app.schemas.saga import UpdateSagaState
 
 SAGA_EVENT_TYPES = {
@@ -20,12 +27,12 @@ SAGA_EVENT_TYPES = {
     "inventory.reserve-failed",
     "inventory.reservation-cancelled",
     "payment.succeeded",
-    "payment.failed",
+    "payment.failed"
 }
 
 SAGA_ORDER_EVENT_STATUS_MAP = {
     "saga.completed",
-    "saga.cancelled",
+    "saga.cancelled"
 }
 
 
@@ -58,7 +65,13 @@ class OrderEventsConsumer:
                 try:
                     for _, messages in data.items():
                         for message in messages:
-                            base_event = BaseEventMessage.model_validate_json(message.value)
+                            try:
+                                base_event = BaseEventMessage.model_validate_json(message.value)
+                            except (ValidationError, ValueError, TypeError, json.JSONDecodeError) as ex:
+                                await self.commands_producer.send_dlq(self._build_non_retriable_dlq(message.value, ex))
+                                logger.error("Invalid event format sent to DLQ", error=ex)
+                                continue
+
                             if base_event.event_type not in SAGA_EVENT_TYPES:
                                 logger.info("Event skipped", event_type=base_event.event_type)
                                 continue
@@ -97,23 +110,94 @@ class OrderEventsConsumer:
             return
 
         if isinstance(message, CommandMessage):
-            new_state_data = None
+            command_routes = {
+                "reserve_inventory": (self.commands_producer.send_inventory_command, StateEnum.INVENTORY_RESERVING),
+                "charge_payment": (self.commands_producer.send_payment_command, StateEnum.PAYMENT_CHARGING),
+                "cancel_reservation": (self.commands_producer.send_inventory_command, StateEnum.COMPENSATING_INVENTORY)
+            }
 
-            if message.command_type == "reserve_inventory":
-                await self.commands_producer.send_inventory_command(message)
-                new_state_data = UpdateSagaState(state=StateEnum.INVENTORY_RESERVING)
+            send_command_func, target_state = command_routes.get(message.command_type)
+            saga = await SagaStateRepository(session).get_one(saga_id=message.saga_id)
 
-            if message.command_type == "charge_payment":
-                await self.commands_producer.send_payment_command(message)
-                new_state_data = UpdateSagaState(state=StateEnum.PAYMENT_CHARGING)
+            if saga.state == target_state:
+                await self.schedule_retry(
+                    session=session,
+                    saga_id=message.saga_id,
+                    state=target_state,
+                    error=Exception("Domain logical retry requested")
+                )
+                return
 
-            if message.command_type == "cancel_reservation":
-                await self.commands_producer.send_inventory_command(message)
-                new_state_data = UpdateSagaState(state=StateEnum.COMPENSATING_INVENTORY)
+            try:
+                await send_command_func(message)
+                new_state_data = UpdateSagaState(state=target_state, retry_count=0)
+                await SagaStateRepository(session).edit(
+                    new_state_data,
+                    exclude_unset=True,
+                    saga_id=message.saga_id
+                )
+                await session.commit()
 
-            await SagaStateRepository(session).edit(new_state_data, saga_id=message.saga_id)
-            await session.commit()
+            except KafkaError as ex:
+                await self.schedule_retry(
+                    session=session,
+                    saga_id=message.saga_id,
+                    state=target_state,
+                    error=ex
+                )
+                return
 
         else:
             if message.event_type in SAGA_ORDER_EVENT_STATUS_MAP:
                 await self.commands_producer.send_order_status(message)
+
+    async def schedule_retry(self, session: AsyncSession, saga_id: uuid.UUID, state: StateEnum, error: Exception):
+        saga_data = await SagaStateRepository(session).get_one(saga_id=saga_id)
+        next_retry_count = saga_data.retry_count + 1
+
+        if next_retry_count > settings.SAGA_MAX_RETRIES:
+            new_state_data = UpdateSagaState(state=StateEnum.FAILED, retry_after=None)
+            await SagaStateRepository(session).edit(
+                new_state_data,
+                exclude_unset=True,
+                saga_id=saga_id
+            )
+            await session.commit()
+            logger.error("Saga moved to FAILED after max retries", saga_id=str(saga_id), error=error)
+            return
+
+        delay_seconds = 2 ** next_retry_count + uniform(0.8, 1.2)
+        retry_after = (datetime.now(UTC) + timedelta(seconds=delay_seconds)).replace(tzinfo=None)
+        new_state_data = UpdateSagaState(
+            state=state,
+            retry_count=next_retry_count,
+            retry_after=retry_after
+        )
+        await SagaStateRepository(session).edit(
+            new_state_data,
+            exclude_unset=True,
+            saga_id=saga_id
+        )
+        await session.commit()
+
+    @staticmethod
+    def _build_non_retriable_dlq(raw_event: str, error: Exception):
+        saga_id = uuid.UUID("00000000-0000-0000-0000-000000000000")
+
+        try:
+            parsed = json.loads(raw_event)
+            if isinstance(parsed, dict):
+                if "saga_id" in parsed:
+                    saga_id = uuid.UUID(str(parsed["saga_id"]))
+        except Exception:
+            pass
+
+        from app.schemas.messages import DlqEventMessage
+
+        return DlqEventMessage(
+            saga_id=saga_id,
+            event_type="orchestrator.invalid-event",
+            retry_count=0,
+            last_error=str(error),
+            failed_at=datetime.now(UTC)
+        )

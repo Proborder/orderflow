@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.logger import logger
 from app.models import StateEnum
 from app.repositories.saga import SagaStateRepository
@@ -54,7 +55,11 @@ class SagaService:
         event_data = InventoryEvent.model_validate_json(raw_event)
 
         new_state_data = UpdateSagaState(state=StateEnum.INVENTORY_RESERVED)
-        saga_event_data = await SagaStateRepository(session).edit(new_state_data, saga_id=event_data.saga_id)
+        saga_event_data = await SagaStateRepository(session).edit(
+            new_state_data,
+            exclude_unset=True,
+            saga_id=event_data.saga_id
+        )
         await session.commit()
 
         command_type = "charge_payment"
@@ -72,7 +77,11 @@ class SagaService:
         event_data = InventoryEvent.model_validate_json(raw_event)
 
         new_state_data = UpdateSagaState(state=StateEnum.CANCELLED)
-        saga_event_data = await SagaStateRepository(session).edit(new_state_data, saga_id=event_data.saga_id)
+        saga_event_data = await SagaStateRepository(session).edit(
+            new_state_data,
+            exclude_unset=True,
+            saga_id=event_data.saga_id
+        )
         await session.commit()
 
         return OrderEventMessage(
@@ -85,7 +94,11 @@ class SagaService:
         event_data = PaymentEvent.model_validate_json(raw_event)
 
         new_state_data = UpdateSagaState(state=StateEnum.COMPLETED)
-        saga_event_data = await SagaStateRepository(session).edit(new_state_data, saga_id=event_data.saga_id)
+        saga_event_data = await SagaStateRepository(session).edit(
+            new_state_data,
+            exclude_unset=True,
+            saga_id=event_data.saga_id
+        )
         await session.commit()
 
         return OrderEventMessage(
@@ -97,8 +110,21 @@ class SagaService:
     async def handle_payment_failed(self, session: AsyncSession, raw_event: str) -> CommandMessage | None:
         event_data = PaymentEvent.model_validate_json(raw_event)
 
-        command_type = "cancel_reservation"
         saga_event_data = await SagaStateRepository(session).get_one(saga_id=event_data.saga_id)
+
+        if saga_event_data.retry_count < settings.SAGA_MAX_RETRIES:
+            command_type = "charge_payment"
+            next_retry_count = saga_event_data.retry_count + 1
+            message_id = command_message_id(event_data.saga_id, command_type, retry_count=next_retry_count)
+            return CommandMessage(
+                command_type=command_type,
+                saga_id=event_data.saga_id,
+                order_id=event_data.order_id,
+                payload=Decimal(saga_event_data.payload["amount"]),
+                message_id=message_id
+            )
+
+        command_type = "cancel_reservation"
         message_id = command_message_id(event_data.saga_id, command_type)
         return CommandMessage(
             command_type=command_type,
@@ -112,7 +138,11 @@ class SagaService:
         event_data = InventoryEvent.model_validate_json(raw_event)
 
         new_state_data = UpdateSagaState(state=StateEnum.CANCELLED)
-        saga_event_data = await SagaStateRepository(session).edit(new_state_data, saga_id=event_data.saga_id)
+        saga_event_data = await SagaStateRepository(session).edit(
+            new_state_data,
+            exclude_unset=True,
+            saga_id=event_data.saga_id
+        )
         await session.commit()
 
         return OrderEventMessage(
@@ -126,10 +156,15 @@ class SagaService:
         logger.info(
             "Saga event ignored",
             event_type=event.event_type,
-            state=state.value if isinstance(state, StateEnum) else None
+            state=state.value if isinstance(state, StateEnum) else None,
         )
         return None
 
 
-def command_message_id(saga_id: uuid.UUID, step: str) -> uuid.UUID:
-    return uuid.uuid5(SAGA_COMMAND_NAMESPACE, f"{saga_id}:{step}")
+def command_message_id(saga_id: uuid.UUID, step: str, retry_count: int = 0) -> uuid.UUID:
+    identifier = f"{saga_id}:{step}"
+
+    if retry_count > 0:
+        identifier = f"{identifier}:retry:{retry_count}"
+
+    return uuid.uuid5(SAGA_COMMAND_NAMESPACE, identifier)
