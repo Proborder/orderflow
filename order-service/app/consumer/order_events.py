@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.logger import logger
+from app.core.redis_conn import redis_manager
 from app.models.orders import StatusEnum
 from app.repositories.orders import OrdersRepository
 from app.schemas.kafka import SagaOrderEventMessage, BaseEventMessage
@@ -127,6 +128,10 @@ class OrderEventsConsumer:
 
             order_update_data = OrderUpdateStatus(status=next_status)
             await OrdersRepository(session).edit(order_update_data, exclude_unset=True, id=event.order_id)
+
+            cache_key = f"order:{event.order_id}"
+            await redis_manager.delete(cache_key)
+            logger.info(f"Order {event.order_id} updated to {next_status}, cache invalidated")
 
         except Exception as ex:
             logger.error(

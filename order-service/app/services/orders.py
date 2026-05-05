@@ -1,8 +1,10 @@
+import json
 import uuid
 from datetime import datetime
 from decimal import Decimal
 
 from aiokafka.errors import KafkaError
+from redis import RedisError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
@@ -14,6 +16,7 @@ from app.core.exceptions import (
     OrderValidationException,
 )
 from app.core.logger import logger
+from app.core.redis_conn import redis_manager
 from app.models.orders import StatusEnum
 from app.schemas.kafka import OrderEventMessage
 from app.schemas.orders import (
@@ -102,9 +105,28 @@ class OrdersService(BaseService):
 
     async def get_order(self, order_id: uuid.UUID) -> OrderResponse:
         try:
-            order_data = await self.db.orders.get_one(id=order_id)
-            logger.info("Order fetched", data=str(order_id))
-            return order_data
+            key = f"order:{order_id}"
+            order_from_cache = None
+
+            try:
+                order_from_cache = await redis_manager.get(key)
+            except (RedisError, ConnectionError) as ex:
+                logger.warning("Redis is unavailable", error=ex)
+
+            if not order_from_cache:
+                logger.info("Order fetching from DB", key=key)
+                order_data = await self.db.orders.get_one(id=order_id)
+                try:
+                    await redis_manager.set(key, order_data.model_dump_json(), settings.REDIS_DEFAULT_EXPIRE)
+                except (RedisError, ConnectionError) as ex:
+                    logger.warning("Redis is unavailable", error=ex)
+
+                logger.info("Order returned from DB", key=key, data=str(order_id))
+                return order_data
+            else:
+                logger.info("Order returned from cache", key=key, data=str(order_id))
+                return json.loads(order_from_cache)
+
         except ObjectNotFoundException as ex:
             logger.warning("Order not found", data=str(order_id))
             raise OrderNotFoundException from ex
