@@ -8,6 +8,7 @@ from app.consumer.order_events import OrderEventsConsumer
 from app.core.kafka_conn import kafka_manager
 from app.core.logger import logger
 from app.saga.retry import SagaRetryWorker
+from app.api.health import router as health_router
 
 
 @asynccontextmanager
@@ -53,3 +54,5 @@ app = FastAPI(
     title="Orchestrator",
     lifespan=lifespan
 )
+
+app.include_router(health_router, prefix="/api/v1")
