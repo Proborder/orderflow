@@ -26,6 +26,8 @@ class PaymentCommandManager:
         )
         self.processed_message_ids: set[uuid.UUID] = set()
 
+    EVENT_ID_NAMESPACE = uuid.UUID("f031a3ac-b130-4cb4-a8f1-4e07d893da7d")
+
     async def start(self):
         await self.consumer.start()
         await self.producer.start()
@@ -87,6 +89,7 @@ class PaymentCommandManager:
             return
 
         event = EventMessage(
+            event_id=self._event_id(command.message_id, event_type),
             event_type=event_type,
             saga_id=command.saga_id,
             order_id=command.order_id,
@@ -117,3 +120,6 @@ class PaymentCommandManager:
         if message_id.int % 100 < 70:
             return "payment.succeeded"
         return "payment.failed"
+
+    def _event_id(self, message_id: uuid.UUID, event_type: str) -> uuid.UUID:
+        return uuid.uuid5(self.EVENT_ID_NAMESPACE, f"{message_id}:{event_type}")

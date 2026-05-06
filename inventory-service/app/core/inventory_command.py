@@ -26,6 +26,8 @@ class InventoryCommandManager:
         )
         self.processed_message_ids: set[uuid.UUID] = set()
 
+    EVENT_ID_NAMESPACE = uuid.UUID("7d6d9c18-1bd8-4e95-8d53-4b8baf84d7d5")
+
     async def start(self):
         await self.consumer.start()
         await self.producer.start()
@@ -87,6 +89,7 @@ class InventoryCommandManager:
             return
 
         event = EventMessage(
+            event_id=self._event_id(command.message_id, event_type),
             event_type=event_type,
             saga_id=command.saga_id,
             order_id=command.order_id,
@@ -117,3 +120,6 @@ class InventoryCommandManager:
         if message_id.int % 100 < 80:
             return "inventory.reserved"
         return "inventory.reserve-failed"
+
+    def _event_id(self, message_id: uuid.UUID, event_type: str) -> uuid.UUID:
+        return uuid.uuid5(self.EVENT_ID_NAMESPACE, f"{message_id}:{event_type}")
