@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 
 class BaseEventMessage(BaseModel):
+    event_id: uuid.UUID
     event_type: str
     saga_id: uuid.UUID
 
@@ -23,6 +24,7 @@ class OrderCreatedEvent(BaseModel):
 
 
 class InventoryEvent(BaseModel):
+    event_id: uuid.UUID
     event_type: str
     saga_id: uuid.UUID
     order_id: uuid.UUID
@@ -32,6 +34,7 @@ class InventoryEvent(BaseModel):
 
 
 class PaymentEvent(BaseModel):
+    event_id: uuid.UUID
     event_type: str
     saga_id: uuid.UUID
     order_id: uuid.UUID

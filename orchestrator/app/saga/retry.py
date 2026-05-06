@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from random import uniform
@@ -76,6 +77,7 @@ class SagaRetryWorker:
                 )
                 await self.commands_producer.send_order_status(
                     OrderEventMessage(
+                        event_id=uuid.uuid4(),
                         event_type="saga.cancelled",
                         saga_id=saga_state_event.saga_id,
                         order_id=saga_state_event.order_id

@@ -85,6 +85,7 @@ class SagaService:
         await session.commit()
 
         return OrderEventMessage(
+            event_id=uuid.uuid4(),
             event_type="saga.cancelled",
             saga_id=saga_event_data.saga_id,
             order_id=saga_event_data.order_id
@@ -102,6 +103,7 @@ class SagaService:
         await session.commit()
 
         return OrderEventMessage(
+            event_id=uuid.uuid4(),
             event_type="saga.completed",
             saga_id=saga_event_data.saga_id,
             order_id=saga_event_data.order_id
@@ -146,6 +148,7 @@ class SagaService:
         await session.commit()
 
         return OrderEventMessage(
+            event_id=uuid.uuid4(),
             event_type="saga.cancelled",
             saga_id=saga_event_data.saga_id,
             order_id=saga_event_data.order_id

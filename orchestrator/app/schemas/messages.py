@@ -15,6 +15,7 @@ class CommandMessage(BaseModel):
 
 
 class OrderEventMessage(BaseModel):
+    event_id: uuid.UUID
     event_type: str
     saga_id: uuid.UUID
     order_id: uuid.UUID
