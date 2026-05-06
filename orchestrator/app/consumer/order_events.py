@@ -149,6 +149,13 @@ class OrderEventsConsumer:
                 return
 
             try:
+                logger.info(
+                    "Saga command dispatch",
+                    saga_id=str(message.saga_id),
+                    order_id=str(message.order_id),
+                    command_type=message.command_type,
+                    target_state=target_state.value
+                )
                 await send_command_func(message)
                 new_state_data = UpdateSagaState(state=target_state, retry_count=0)
                 await SagaStateRepository(session).edit(
@@ -157,6 +164,12 @@ class OrderEventsConsumer:
                     saga_id=message.saga_id
                 )
                 await session.commit()
+                logger.info(
+                    "Saga state transition",
+                    saga_id=str(message.saga_id),
+                    order_id=str(message.order_id),
+                    state=target_state.value
+                )
 
             except KafkaError as ex:
                 await self.schedule_retry(
@@ -169,6 +182,12 @@ class OrderEventsConsumer:
 
         else:
             if message.event_type in SAGA_ORDER_EVENT_STATUS_MAP:
+                logger.info(
+                    "Saga final status event published",
+                    saga_id=str(message.saga_id),
+                    order_id=str(message.order_id),
+                    event_type=message.event_type
+                )
                 await self.commands_producer.send_order_status(message)
 
     async def schedule_retry(self, session: AsyncSession, saga_id: uuid.UUID, state: StateEnum, error: Exception):
@@ -197,6 +216,14 @@ class OrderEventsConsumer:
 
         delay_seconds = 2 ** next_retry_count + uniform(0.8, 1.2)
         retry_after = (datetime.now(UTC) + timedelta(seconds=delay_seconds)).replace(tzinfo=None)
+        logger.warning(
+            "Saga retry scheduled",
+            saga_id=str(saga_id),
+            state=state.value,
+            retry_count=next_retry_count,
+            delay_seconds=round(delay_seconds, 3),
+            retry_after=retry_after.isoformat()
+        )
         new_state_data = UpdateSagaState(
             state=state,
             retry_count=next_retry_count,

@@ -40,6 +40,13 @@ class SagaService:
         )
         await SagaStateRepository(session).add(add_saga_data)
         await session.commit()
+        logger.info(
+            "Saga state transition",
+            saga_id=str(event_data.saga_id),
+            order_id=str(event_data.order_id),
+            event_type=event_data.event_type,
+            state=StateEnum.CREATED.value
+        )
 
         command_type = "reserve_inventory"
         message_id = command_message_id(event_data.saga_id, command_type)
@@ -61,6 +68,13 @@ class SagaService:
             saga_id=event_data.saga_id
         )
         await session.commit()
+        logger.info(
+            "Saga state transition",
+            saga_id=str(event_data.saga_id),
+            order_id=str(event_data.order_id),
+            event_type=event_data.event_type,
+            state=StateEnum.INVENTORY_RESERVED.value
+        )
 
         command_type = "charge_payment"
         message_id = command_message_id(event_data.saga_id, command_type)
@@ -83,6 +97,13 @@ class SagaService:
             saga_id=event_data.saga_id
         )
         await session.commit()
+        logger.info(
+            "Saga state transition",
+            saga_id=str(event_data.saga_id),
+            order_id=str(event_data.order_id),
+            event_type=event_data.event_type,
+            state=StateEnum.CANCELLED.value
+        )
 
         return OrderEventMessage(
             event_id=uuid.uuid4(),
@@ -101,6 +122,13 @@ class SagaService:
             saga_id=event_data.saga_id
         )
         await session.commit()
+        logger.info(
+            "Saga state transition",
+            saga_id=str(event_data.saga_id),
+            order_id=str(event_data.order_id),
+            event_type=event_data.event_type,
+            state=StateEnum.COMPLETED.value
+        )
 
         return OrderEventMessage(
             event_id=uuid.uuid4(),
@@ -115,6 +143,12 @@ class SagaService:
         saga_event_data = await SagaStateRepository(session).get_one(saga_id=event_data.saga_id)
 
         if saga_event_data.retry_count < settings.SAGA_MAX_RETRIES:
+            logger.warning(
+                "Saga payment failed, retry scheduled",
+                saga_id=str(event_data.saga_id),
+                order_id=str(event_data.order_id),
+                retry_count=saga_event_data.retry_count + 1
+            )
             command_type = "charge_payment"
             next_retry_count = saga_event_data.retry_count + 1
             message_id = command_message_id(event_data.saga_id, command_type, retry_count=next_retry_count)
@@ -126,6 +160,11 @@ class SagaService:
                 message_id=message_id
             )
 
+        logger.warning(
+            "Saga payment failed, start compensation",
+            saga_id=str(event_data.saga_id),
+            order_id=str(event_data.order_id)
+        )
         command_type = "cancel_reservation"
         message_id = command_message_id(event_data.saga_id, command_type)
         return CommandMessage(
@@ -146,6 +185,13 @@ class SagaService:
             saga_id=event_data.saga_id
         )
         await session.commit()
+        logger.info(
+            "Saga state transition",
+            saga_id=str(event_data.saga_id),
+            order_id=str(event_data.order_id),
+            event_type=event_data.event_type,
+            state=StateEnum.CANCELLED.value
+        )
 
         return OrderEventMessage(
             event_id=uuid.uuid4(),
@@ -159,7 +205,7 @@ class SagaService:
         logger.info(
             "Saga event ignored",
             event_type=event.event_type,
-            state=state.value if isinstance(state, StateEnum) else None,
+            state=state.value if isinstance(state, StateEnum) else None
         )
         return None
 

@@ -27,6 +27,8 @@ class SagaRetryWorker:
             while not stop_event.is_set():
                 async with async_session_maker() as session:
                     due_sagas = await SagaStateRepository(session).get_due_retries()
+                    if due_sagas:
+                        logger.info("Saga retries due", count=len(due_sagas))
 
                     for saga in due_sagas:
                         await self.process_retry(session, saga)
@@ -42,6 +44,13 @@ class SagaRetryWorker:
             return
 
         try:
+            logger.info(
+                "Saga retry dispatch",
+                saga_id=str(saga_state_event.saga_id),
+                order_id=str(saga_state_event.order_id),
+                state=saga_state_event.state.value,
+                retry_count=saga_state_event.retry_count
+            )
             if command.command_type in {"reserve_inventory", "cancel_reservation"}:
                 await self.commands_producer.send_inventory_command(command)
             else:
@@ -54,6 +63,11 @@ class SagaRetryWorker:
                 saga_id=saga_state_event.saga_id
             )
             await session.commit()
+            logger.info(
+                "Saga retry sent",
+                saga_id=str(saga_state_event.saga_id),
+                command_type=command.command_type
+            )
 
         except KafkaError as ex:
             next_retry_count = saga_state_event.retry_count + 1
@@ -87,6 +101,14 @@ class SagaRetryWorker:
 
             delay_seconds = 2 ** next_retry_count + uniform(0.8, 1.2)
             retry_after = (datetime.now(UTC) + timedelta(seconds=delay_seconds)).replace(tzinfo=None)
+            logger.warning(
+                "Saga retry rescheduled",
+                saga_id=str(saga_state_event.saga_id),
+                retry_count=next_retry_count,
+                delay_seconds=round(delay_seconds, 3),
+                retry_after=retry_after.isoformat(),
+                error=str(ex)
+            )
             new_state_data = UpdateSagaState(
                 retry_count=next_retry_count,
                 retry_after=retry_after
