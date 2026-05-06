@@ -18,7 +18,7 @@ from app.repositories.saga import SagaStateRepository
 from app.saga.handlers import SagaEventDispatcher
 from app.saga.service import SagaService
 from app.schemas.events import BaseEventMessage
-from app.schemas.messages import CommandMessage
+from app.schemas.messages import CommandMessage, DlqEventMessage
 from app.schemas.saga import UpdateSagaState
 
 SAGA_EVENT_TYPES = {
@@ -163,6 +163,15 @@ class OrderEventsConsumer:
                 saga_id=saga_id
             )
             await session.commit()
+            await self.commands_producer.send_dlq(
+                DlqEventMessage(
+                    event_type="orchestrator.retry-exhausted",
+                    saga_id=saga_id,
+                    retry_count=next_retry_count,
+                    last_error=str(error),
+                    failed_at=datetime.now(UTC)
+                )
+            )
             logger.error("Saga moved to FAILED after max retries", saga_id=str(saga_id), error=error)
             return
 
