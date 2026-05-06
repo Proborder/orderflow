@@ -3,12 +3,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.health import router as health_router
 from app.consumer.dlq_reader import DLQReader
 from app.consumer.order_events import OrderEventsConsumer
 from app.core.kafka_conn import kafka_manager
 from app.core.logger import logger
 from app.saga.retry import SagaRetryWorker
-from app.api.health import router as health_router
 
 
 @asynccontextmanager
