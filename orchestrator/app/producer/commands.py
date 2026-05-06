@@ -31,5 +31,6 @@ class CommandsProducer:
     async def send_dlq(self, message: DlqEventMessage) -> None:
         await self.producer.send_and_wait(
             topic=settings.KAFKA_DLQ_TOPIC,
-            value=message.model_dump_json()
+            value=message.model_dump_json(),
+            key=str(message.saga_id)
         )
