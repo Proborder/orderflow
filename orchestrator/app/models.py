@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Enum, ForeignKey, func
+from sqlalchemy import Enum, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,6 +38,6 @@ class ProcessedEventsOrm(Base):
     __tablename__ = 'processed_events'
 
     event_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
-    saga_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('saga_state.saga_id'))
+    saga_id: Mapped[uuid.UUID]
     event_type: Mapped[str]
     processed_at: Mapped[datetime] = mapped_column(server_default=func.now())

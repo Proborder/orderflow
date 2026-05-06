@@ -1,8 +1,8 @@
-"""Saga init
+"""Init
 
-Revision ID: 7beb91a7b883
+Revision ID: 3c946e4e31ec
 Revises:
-Create Date: 2026-04-30 15:51:08.573338
+Create Date: 2026-05-06 19:30:13.284320
 
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "7beb91a7b883"
+revision: str = "3c946e4e31ec"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -21,6 +21,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    op.create_table(
+        "processed_events",
+        sa.Column("event_id", sa.Uuid(), nullable=False),
+        sa.Column("saga_id", sa.Uuid(), nullable=False),
+        sa.Column("event_type", sa.String(), nullable=False),
+        sa.Column(
+            "processed_at",
+            sa.DateTime(),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.PrimaryKeyConstraint("event_id"),
+    )
     op.create_table(
         "saga_state",
         sa.Column("saga_id", sa.Uuid(), nullable=False),
@@ -42,6 +55,7 @@ def upgrade() -> None:
         ),
         sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("retry_count", sa.Integer(), nullable=False),
+        sa.Column("retry_after", sa.DateTime(), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
         ),
@@ -55,3 +69,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     op.drop_table("saga_state")
+    op.drop_table("processed_events")
