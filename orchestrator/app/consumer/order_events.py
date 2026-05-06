@@ -14,11 +14,13 @@ from app.core.database import async_session_maker
 from app.core.logger import logger
 from app.models import StateEnum
 from app.producer.commands import CommandsProducer
+from app.repositories.processed_events import ProcessedEventsRepository
 from app.repositories.saga import SagaStateRepository
 from app.saga.handlers import SagaEventDispatcher
 from app.saga.service import SagaService
 from app.schemas.events import BaseEventMessage
 from app.schemas.messages import CommandMessage, DlqEventMessage
+from app.schemas.processed_events import CreateProcessedEvent
 from app.schemas.saga import UpdateSagaState
 
 SAGA_EVENT_TYPES = {
@@ -78,7 +80,7 @@ class OrderEventsConsumer:
 
                             async with async_session_maker() as session:
                                 try:
-                                    await self.handle_event(session, message.value)
+                                    await self.handle_event(session, base_event, message.value)
                                 except Exception as ex:
                                     logger.error("Order event batch processing failed", error=ex)
                                     await session.rollback()
@@ -104,9 +106,27 @@ class OrderEventsConsumer:
         except asyncio.CancelledError:
             logger.info("Order event worker shutdown")
 
-    async def handle_event(self, session, raw_event: str):
+    async def handle_event(self, session: AsyncSession, base_event: BaseEventMessage, raw_event: str):
+        add_processed_event_data = CreateProcessedEvent(
+            event_id=base_event.event_id,
+            saga_id=base_event.saga_id,
+            event_type=base_event.event_type
+        )
+        is_new = await ProcessedEventsRepository(session).add(add_processed_event_data)
+        if not is_new:
+            logger.info(
+                "duplicate event, skipped",
+                event_id=str(base_event.event_id),
+                saga_id=str(base_event.saga_id),
+                event_type=base_event.event_type
+            )
+            await session.commit()
+            return
+
         message = await self.saga_dispatcher.dispatch(session, raw_event)
+
         if message is None:
+            await session.commit()
             return
 
         if isinstance(message, CommandMessage):
