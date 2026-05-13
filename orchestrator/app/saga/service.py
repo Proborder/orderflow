@@ -87,8 +87,28 @@ class SagaService:
         )
 
 
-    async def handle_inventory_failed(self, session: AsyncSession, raw_event: str) -> OrderEventMessage | None:
+    async def handle_inventory_failed(self, session: AsyncSession, raw_event: str) -> OrderEventMessage | CommandMessage:
         event_data = InventoryEvent.model_validate_json(raw_event)
+
+        saga_event_data = await SagaStateRepository(session).get_one(saga_id=event_data.saga_id)
+
+        if saga_event_data.retry_count < settings.SAGA_MAX_RETRIES:
+            logger.warning(
+                "Saga inventory failed, retry scheduled",
+                saga_id=str(saga_event_data.saga_id),
+                order_id=str(saga_event_data.order_id),
+                retry_count=saga_event_data.retry_count + 1
+            )
+            command_type = "reserve_inventory"
+            next_retry_count = saga_event_data.retry_count + 1
+            message_id = command_message_id(saga_event_data.saga_id, command_type, retry_count=next_retry_count)
+            return CommandMessage(
+                command_type=command_type,
+                saga_id=saga_event_data.saga_id,
+                order_id=saga_event_data.order_id,
+                payload=saga_event_data.payload["items"],
+                message_id=message_id
+            )
 
         new_state_data = UpdateSagaState(state=StateEnum.CANCELLED)
         saga_event_data = await SagaStateRepository(session).edit(
