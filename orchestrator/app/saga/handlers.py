@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import StateEnum
 from app.saga.service import SagaService
-from app.schemas.events import BaseEventMessage
+from app.schemas.events import BaseEventMessage, InventoryEvent, OrderCreatedEvent, PaymentEvent
 from app.schemas.messages import CommandMessage, OrderEventMessage
 
 
@@ -18,12 +18,32 @@ class SagaEventDispatcher:
             ("inventory.reservation-cancelled", StateEnum.COMPENSATING_INVENTORY): self.service.handle_inventory_cancelled
         }
 
-    async def dispatch(self, session: AsyncSession, raw_event: str) -> CommandMessage | OrderEventMessage | None:
-        event = BaseEventMessage.model_validate_json(raw_event)
+    async def dispatch(
+        self, session: AsyncSession,
+        event: BaseEventMessage
+    ) -> CommandMessage | OrderEventMessage | None:
         current_state = await self.service.get_current_state(session, event)
 
         handler = self.routes.get((event.event_type, current_state))
         if handler is None:
-            return await self.service.ignore_event(raw_event, current_state)
+            await self.service.ignore_event(event, current_state)
+            return None
 
-        return await handler(session=session, raw_event=raw_event)
+        return await handler(session=session, event_data=event)
+
+    @staticmethod
+    def parse_event(raw_event: str) -> BaseEventMessage:
+        base_event = BaseEventMessage.model_validate_json(raw_event)
+
+        event_parser_by_type = {
+            "order.created": OrderCreatedEvent,
+            "inventory.reserved": InventoryEvent,
+            "inventory.reserve-failed": InventoryEvent,
+            "inventory.reservation-cancelled": InventoryEvent,
+            "payment.succeeded": PaymentEvent,
+            "payment.failed": PaymentEvent
+        }
+        event = event_parser_by_type.get(base_event.event_type)
+        if event is None:
+            return base_event
+        return event.model_validate_json(raw_event)

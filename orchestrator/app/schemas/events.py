@@ -12,10 +12,7 @@ class BaseEventMessage(BaseModel):
     saga_id: uuid.UUID
 
 
-class OrderCreatedEvent(BaseModel):
-    event_id: uuid.UUID
-    event_type: str
-    saga_id: uuid.UUID
+class OrderCreatedEvent(BaseEventMessage):
     order_id: uuid.UUID
     user_id: uuid.UUID
     items: dict[str, Any]
@@ -23,20 +20,14 @@ class OrderCreatedEvent(BaseModel):
     timestamp: datetime
 
 
-class InventoryEvent(BaseModel):
-    event_id: uuid.UUID
-    event_type: str
-    saga_id: uuid.UUID
+class InventoryEvent(BaseEventMessage):
     order_id: uuid.UUID
     payload: dict[str, Any]
     message_id: uuid.UUID
     timestamp: datetime
 
 
-class PaymentEvent(BaseModel):
-    event_id: uuid.UUID
-    event_type: str
-    saga_id: uuid.UUID
+class PaymentEvent(BaseEventMessage):
     order_id: uuid.UUID
     payload: Decimal
     message_id: uuid.UUID
