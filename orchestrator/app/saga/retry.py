@@ -1,20 +1,17 @@
 import asyncio
-import uuid
-from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from random import uniform
 
 from aiokafka.errors import KafkaError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.database import async_session_maker
 from app.core.logger import logger
 from app.models import StateEnum
 from app.producer.commands import CommandsProducer
 from app.repositories.saga import SagaStateRepository
+from app.saga.retry_policy import SagaRetryPolicy
 from app.saga.service import command_message_id
-from app.schemas.messages import CommandMessage, DlqEventMessage, OrderEventMessage
+from app.schemas.messages import CommandMessage
 from app.schemas.saga import SagaState, UpdateSagaState
 
 
@@ -71,54 +68,16 @@ class SagaRetryWorker:
 
         except KafkaError as ex:
             next_retry_count = saga_state_event.retry_count + 1
-            if next_retry_count > settings.SAGA_MAX_RETRIES:
-                new_state_data = UpdateSagaState(state=StateEnum.FAILED, retry_after=None)
-                await SagaStateRepository(session).edit(
-                    new_state_data,
-                    exclude_unset=True,
-                    saga_id=saga_state_event.saga_id
-                )
-                await session.commit()
-
-                await self.commands_producer.send_dlq(
-                    DlqEventMessage(
-                        event_type=command.command_type,
-                        saga_id=saga_state_event.saga_id,
-                        retry_count=next_retry_count,
-                        last_error=str(ex),
-                        failed_at=datetime.now(UTC)
-                    )
-                )
-                await self.commands_producer.send_order_status(
-                    OrderEventMessage(
-                        event_id=uuid.uuid4(),
-                        event_type="saga.cancelled",
-                        saga_id=saga_state_event.saga_id,
-                        order_id=saga_state_event.order_id
-                    )
-                )
-                return
-
-            delay_seconds = 2 ** next_retry_count + uniform(0.8, 1.2)
-            retry_after = (datetime.now(UTC) + timedelta(seconds=delay_seconds)).replace(tzinfo=None)
-            logger.warning(
-                "Saga retry rescheduled",
-                saga_id=str(saga_state_event.saga_id),
-                retry_count=next_retry_count,
-                delay_seconds=round(delay_seconds, 3),
-                retry_after=retry_after.isoformat(),
-                error=str(ex)
+            await SagaRetryPolicy.apply_retry_or_fail(
+                session=session,
+                saga_id=saga_state_event.saga_id,
+                state=saga_state_event.state,
+                next_retry_count=next_retry_count,
+                error=ex,
+                commands_producer=self.commands_producer,
+                dlq_event_type=command.command_type,
+                order_id=saga_state_event.order_id,
             )
-            new_state_data = UpdateSagaState(
-                retry_count=next_retry_count,
-                retry_after=retry_after
-            )
-            await SagaStateRepository(session).edit(
-                new_state_data,
-                exclude_unset=True,
-                saga_id=saga_state_event.saga_id
-            )
-            await session.commit()
 
     def get_command(self, saga_event_data: SagaState) -> CommandMessage | None:
         if saga_event_data.state == StateEnum.INVENTORY_RESERVING:

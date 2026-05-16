@@ -1,8 +1,7 @@
 import asyncio
 import json
 import uuid
-from datetime import UTC, datetime, timedelta
-from random import uniform
+from datetime import UTC, datetime
 
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import CommitFailedError, KafkaError
@@ -17,6 +16,7 @@ from app.producer.commands import CommandsProducer
 from app.repositories.processed_events import ProcessedEventsRepository
 from app.repositories.saga import SagaStateRepository
 from app.saga.handlers import SagaEventDispatcher
+from app.saga.retry_policy import SagaRetryPolicy
 from app.saga.service import SagaService
 from app.schemas.events import BaseEventMessage
 from app.schemas.messages import CommandMessage, DlqEventMessage
@@ -138,7 +138,27 @@ class OrderEventsConsumer:
                 "cancel_reservation": (self.commands_producer.send_inventory_command, StateEnum.COMPENSATING_INVENTORY)
             }
 
-            send_command_func, target_state = command_routes.get(message.command_type)
+            route = command_routes.get(message.command_type)
+            if route is None:
+                logger.error(
+                    "Unknown saga command type",
+                    saga_id=str(message.saga_id),
+                    order_id=str(message.order_id),
+                    command_type=message.command_type
+                )
+                await self.commands_producer.send_dlq(
+                    DlqEventMessage(
+                        event_type="orchestrator.unknown-command",
+                        saga_id=message.saga_id,
+                        retry_count=0,
+                        last_error=f"Unknown command type: {message.command_type}",
+                        failed_at=datetime.now(UTC)
+                    )
+                )
+                await session.commit()
+                return
+
+            send_command_func, target_state = route
             saga = await SagaStateRepository(session).get_one(saga_id=message.saga_id)
 
             if saga.state == target_state:
@@ -201,48 +221,15 @@ class OrderEventsConsumer:
     ) -> None:
         saga_data = await SagaStateRepository(session).get_one(saga_id=saga_id)
         next_retry_count = saga_data.retry_count + 1
-
-        if next_retry_count > settings.SAGA_MAX_RETRIES:
-            new_state_data = UpdateSagaState(state=StateEnum.FAILED, retry_after=None)
-            await SagaStateRepository(session).edit(
-                new_state_data,
-                exclude_unset=True,
-                saga_id=saga_id
-            )
-            await session.commit()
-            await self.commands_producer.send_dlq(
-                DlqEventMessage(
-                    event_type="orchestrator.retry-exhausted",
-                    saga_id=saga_id,
-                    retry_count=next_retry_count,
-                    last_error=str(error),
-                    failed_at=datetime.now(UTC)
-                )
-            )
-            logger.error("Saga moved to FAILED after max retries", saga_id=str(saga_id), error=error)
-            return
-
-        delay_seconds = 2 ** next_retry_count + uniform(0.8, 1.2)
-        retry_after = (datetime.now(UTC) + timedelta(seconds=delay_seconds)).replace(tzinfo=None)
-        logger.warning(
-            "Saga retry scheduled",
-            saga_id=str(saga_id),
-            state=state.value,
-            retry_count=next_retry_count,
-            delay_seconds=round(delay_seconds, 3),
-            retry_after=retry_after.isoformat()
-        )
-        new_state_data = UpdateSagaState(
+        await SagaRetryPolicy.apply_retry_or_fail(
+            session=session,
+            saga_id=saga_id,
             state=state,
-            retry_count=next_retry_count,
-            retry_after=retry_after
+            next_retry_count=next_retry_count,
+            error=error,
+            commands_producer=self.commands_producer,
+            dlq_event_type="orchestrator.retry-exhausted"
         )
-        await SagaStateRepository(session).edit(
-            new_state_data,
-            exclude_unset=True,
-            saga_id=saga_id
-        )
-        await session.commit()
 
     @staticmethod
     def _build_non_retriable_dlq(raw_event: str, error: Exception):
