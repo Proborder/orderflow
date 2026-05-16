@@ -70,7 +70,9 @@ class OrderEventsConsumer:
                             try:
                                 event = self.saga_dispatcher.parse_event(message.value)
                             except (ValidationError, ValueError, TypeError, json.JSONDecodeError) as ex:
-                                await self.commands_producer.send_dlq(self._build_non_retriable_dlq(message.value, ex))
+                                await self.commands_producer.send_dlq(
+                                    self._build_non_retriable_dlq(message.value, ex)
+                                )
                                 logger.error("Invalid event format sent to DLQ", error=ex)
                                 continue
 
@@ -190,7 +192,13 @@ class OrderEventsConsumer:
                 )
                 await self.commands_producer.send_order_status(message)
 
-    async def schedule_retry(self, session: AsyncSession, saga_id: uuid.UUID, state: StateEnum, error: Exception):
+    async def schedule_retry(
+        self,
+        session: AsyncSession,
+        saga_id: uuid.UUID,
+        state: StateEnum,
+        error: Exception
+    ) -> None:
         saga_data = await SagaStateRepository(session).get_one(saga_id=saga_id)
         next_retry_count = saga_data.retry_count + 1
 

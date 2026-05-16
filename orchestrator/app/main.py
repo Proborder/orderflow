@@ -18,7 +18,9 @@ async def lifespan(app: FastAPI):
     await kafka_manager.setup()
 
     stop_event = asyncio.Event()
-    consumer_order_task = asyncio.create_task(OrderEventsConsumer(kafka_manager.order_consumer).consume(stop_event))
+    consumer_order_task = asyncio.create_task(
+        OrderEventsConsumer(kafka_manager.order_consumer).consume(stop_event)
+    )
     consumer_dlq_task = asyncio.create_task(DLQReader(kafka_manager.dlq_consumer).consume(stop_event))
     retry_task = asyncio.create_task(SagaRetryWorker().start(stop_event))
 

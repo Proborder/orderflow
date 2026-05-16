@@ -1,6 +1,6 @@
 import uuid
-from decimal import Decimal
 from collections.abc import Callable
+from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,7 +59,11 @@ class SagaService:
             message_id=message_id
         )
 
-    async def handle_inventory_reserved(self, session: AsyncSession, event_data: InventoryEvent) -> CommandMessage:
+    async def handle_inventory_reserved(
+        self,
+        session: AsyncSession,
+        event_data: InventoryEvent
+    ) -> CommandMessage:
         saga_event_data = await self._transition_state(session, event_data, StateEnum.INVENTORY_RESERVED)
 
         command_type = "charge_payment"
@@ -98,7 +102,8 @@ class SagaService:
         )
 
     async def handle_payment_succeeded(
-        self, session: AsyncSession,
+        self,
+        session: AsyncSession,
         event_data: PaymentEvent
     ) -> OrderEventMessage:
         saga_event_data = await self._transition_state(session, event_data, StateEnum.COMPLETED)
@@ -138,7 +143,8 @@ class SagaService:
         )
 
     async def handle_inventory_cancelled(
-        self, session: AsyncSession,
+        self,
+        session: AsyncSession,
         event_data: InventoryEvent
     ) -> OrderEventMessage:
         saga_event_data = await self._transition_state(session, event_data, StateEnum.CANCELLED)
@@ -177,7 +183,7 @@ class SagaService:
         self,
         saga_event_data,
         command_type: str,
-        payload,
+        payload: Decimal | dict,
         msg: str
     ) -> CommandMessage | None:
         if saga_event_data.retry_count >= settings.SAGA_MAX_RETRIES:
